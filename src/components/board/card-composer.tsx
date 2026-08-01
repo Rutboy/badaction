@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useI18n } from "@/i18n/provider";
 
 export const CardComposer = ({
   columnId,
@@ -21,6 +22,7 @@ export const CardComposer = ({
     author: string | null,
   ) => Promise<{ ok: true } | { ok: false; message: string }>;
 }) => {
+  const { formatNumber, locale, t } = useI18n();
   const [open, setOpen] = useState(false);
   const [showAuthor, setShowAuthor] = useState(false);
   const [text, setText] = useState("");
@@ -34,6 +36,8 @@ export const CardComposer = ({
       textareaRef.current?.focus();
     }
   }, [open]);
+
+  useEffect(() => setError(null), [locale]);
 
   const close = () => {
     if (pending) return;
@@ -49,11 +53,11 @@ export const CardComposer = ({
     const normalizedText = text.trim();
     const normalizedAuthor = author.trim();
     if (!normalizedText) {
-      setError("Введите текст карточки.");
+      setError(t("content.card.textRequired"));
       return;
     }
     if (normalizedText.length > 1000) {
-      setError("Максимум 1000 символов.");
+      setError(t("content.card.textTooLong"));
       return;
     }
 
@@ -82,10 +86,10 @@ export const CardComposer = ({
         variant="ghost"
         className="h-10 w-full justify-start px-2 text-muted-foreground hover:text-foreground max-sm:h-11"
         onClick={() => setOpen(true)}
-        aria-label={`Добавить карточку в колонку «${columnTitle}»`}
+        aria-label={t("content.card.addToColumn", { column: columnTitle })}
       >
         <Plus className="size-4" aria-hidden="true" />
-        Добавить карточку
+        {t("content.card.add")}
       </Button>
     );
   }
@@ -93,7 +97,7 @@ export const CardComposer = ({
   return (
     <form
       className="space-y-2 border-b pb-3"
-      aria-label={`Новая карточка в колонке «${columnTitle}»`}
+      aria-label={t("content.card.newInColumn", { column: columnTitle })}
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -111,7 +115,7 @@ export const CardComposer = ({
       }}
     >
       <label htmlFor={`new-card-text-${columnId}`} className="sr-only">
-        Текст карточки
+        {t("content.card.textLabel")}
       </label>
       <Textarea
         ref={textareaRef}
@@ -119,7 +123,7 @@ export const CardComposer = ({
         value={text}
         onChange={(event) => setText(event.target.value)}
         disabled={pending}
-        placeholder="Введите карточку"
+        placeholder={t("content.card.placeholder")}
         maxLength={1000}
         required
         aria-describedby={
@@ -137,16 +141,18 @@ export const CardComposer = ({
             value={author}
             onChange={(event) => setAuthor(event.target.value)}
             disabled={pending}
-            placeholder="Автор (необязательно)"
+            placeholder={t("content.card.authorPlaceholder")}
             maxLength={120}
-            aria-label={`Автор карточки в колонке «${columnTitle}»`}
+            aria-label={t("content.card.authorInColumn", {
+              column: columnTitle,
+            })}
             autoFocus
           />
           <Button
             type="button"
             size="icon"
             variant="ghost"
-            aria-label="Убрать автора"
+            aria-label={t("content.card.removeAuthor")}
             disabled={pending}
             onClick={() => {
               setAuthor("");
@@ -167,7 +173,7 @@ export const CardComposer = ({
           onClick={() => setShowAuthor(true)}
         >
           <UserRound className="size-4" aria-hidden="true" />
-          Указать автора
+          {t("content.card.addAuthor")}
         </Button>
       )}
       {text.length >= 900 ? (
@@ -175,7 +181,7 @@ export const CardComposer = ({
           id={`new-card-counter-${columnId}`}
           className="text-right text-xs text-muted-foreground"
         >
-          {text.length} / 1000
+          {formatNumber(text.length)} / {formatNumber(1000)}
         </p>
       ) : null}
       {error ? (
@@ -195,7 +201,7 @@ export const CardComposer = ({
           onClick={close}
           disabled={pending}
         >
-          Отмена
+          {t("content.common.cancel")}
         </Button>
         <Button
           type="submit"
@@ -205,12 +211,10 @@ export const CardComposer = ({
           {pending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
-          Добавить
+          {t("content.common.add")}
         </Button>
       </div>
-      <p className="sr-only">
-        Control или Command + Enter — добавить. Escape — закрыть.
-      </p>
+      <p className="sr-only">{t("content.common.keyboardSubmit")}</p>
     </form>
   );
 };

@@ -79,7 +79,7 @@ export const requireContentVisitorIdentity = (
   return visitorIdentity;
 };
 
-const boardNotFound = () => new ApiError(404, "BOARD_NOT_FOUND", "Доска не найдена");
+const boardNotFound = () => new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
 
 export const isRetryableContentTransactionError = (error: unknown): boolean => {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -166,7 +166,7 @@ export const requireOwner = (access: BoardAccessContext): void => {
     throw new ApiError(
       403,
       "BOARD_OWNER_REQUIRED",
-      "Эта операция доступна только владельцу доски.",
+      "Only the board owner can perform this action.",
     );
   }
 };
@@ -176,7 +176,7 @@ export const requireWritableBoard = (board: LockedBoard): void => {
     throw new ApiError(
       409,
       "BOARD_READ_ONLY",
-      "Доска находится в режиме только для чтения.",
+      "The board is read-only.",
     );
   }
 };
@@ -186,7 +186,7 @@ export const requireCardsEnabled = (board: LockedBoard): void => {
     throw new ApiError(
       409,
       "CARDS_DISABLED",
-      "Работа с карточками на этой доске отключена.",
+      "Cards are disabled on this board.",
     );
   }
 };
@@ -196,7 +196,7 @@ export const requireVotingEnabled = (board: LockedBoard): void => {
     throw new ApiError(
       409,
       "VOTING_DISABLED",
-      "Голосование на этой доске отключено.",
+      "Voting is disabled on this board.",
     );
   }
 };
@@ -219,7 +219,7 @@ export const requireExpectedRevision = (
     throw new ApiError(
       409,
       "STALE_BOARD_REVISION",
-      "Состояние доски изменилось. Обновите данные и повторите действие.",
+      "The board changed. Refresh it and try again.",
       { currentRevision: serializeRevision(board.revision) },
     );
   }
@@ -305,7 +305,7 @@ export const positionForInsertion = (
 export const stalePlacement = (revision: bigint) => new ApiError(
   409,
   "STALE_BOARD_REVISION",
-  "Состояние доски изменилось. Обновите данные и повторите действие.",
+  "The board changed. Refresh it and try again.",
   { currentRevision: serializeRevision(revision) },
 );
 

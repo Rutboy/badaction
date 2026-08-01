@@ -36,13 +36,13 @@ type BoardEventsRouteContext = { params: Promise<{ boardId: string }> };
 const validationError = () => new ApiError(
   400,
   "VALIDATION_ERROR",
-  "Некорректный Last-Event-ID.",
+  "Invalid Last-Event-ID.",
 );
 
 const realtimeUnavailable = () => new ApiError(
   503,
   DATABASE_UNAVAILABLE_CODE,
-  "База данных временно недоступна.",
+  "The database is temporarily unavailable.",
 );
 
 const readLastEventId = (request: Request): bigint | null => {

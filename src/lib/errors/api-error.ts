@@ -37,7 +37,7 @@ export const toErrorResponse = (error: unknown): Response => {
     {
       error: {
         code: "INTERNAL_ERROR",
-        message: "Внутренняя ошибка сервера",
+        message: "Internal server error.",
       },
     },
     { status: 500, headers: { "Cache-Control": "no-store" } },

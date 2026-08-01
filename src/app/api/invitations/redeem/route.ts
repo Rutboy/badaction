@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const parsed = redeemInvitationSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Ошибка валидации приглашения", {
+      throw new ApiError(400, "VALIDATION_ERROR", "Invitation validation failed.", {
         issues: parsed.error.issues,
       });
     }
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     const membership = await redeemBoardInvitation(
       parsed.data.token,
       visitorPayload,
-      parsed.data.displayName ?? "Участник",
+      parsed.data.displayName ?? "Participant",
     );
     return Response.json(membership, {
       headers: { "Cache-Control": "no-store" },

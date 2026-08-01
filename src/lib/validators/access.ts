@@ -3,7 +3,7 @@ import { MAX_PARTICIPANT_INVITATION_USES } from "../constants/access.ts";
 
 export const invitationTokenSchema = z
   .string()
-  .regex(/^[A-Za-z0-9_-]{43}$/, "Некорректный токен приглашения");
+  .regex(/^[A-Za-z0-9_-]{43}$/, "Invalid invitation token.");
 
 export const redeemInvitationSchema = z.object({
   token: invitationTokenSchema,

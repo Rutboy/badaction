@@ -5,17 +5,27 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { readApiError } from "@/i18n/api-errors";
+import type { Locale } from "@/i18n/locales";
+import { useI18n } from "@/i18n/provider";
+
+type LocalizedError = {
+  locale: Locale;
+  message: string;
+};
 
 export const CreateBoardButton = () => {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LocalizedError | null>(null);
   const [title, setTitle] = useState("");
+  const visibleError = error?.locale === locale ? error.message : null;
 
   const onCreate = async () => {
     const normalizedTitle = title.trim();
     if (!normalizedTitle) {
-      setError("Введите название ретроспективы.");
+      setError({ locale, message: t("home.titleRequired") });
       return;
     }
 
@@ -29,17 +39,21 @@ export const CreateBoardButton = () => {
       });
 
       if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as {
-          error?: { message?: string };
-        } | null;
-        setError(data?.error?.message ?? "Не удалось создать доску. Попробуйте ещё раз.");
+        setError({
+          locale,
+          message: await readApiError(response, t, "home.createFailed"),
+        });
         return;
       }
 
-      const data = (await response.json()) as { url: string };
+      const data = (await response.json().catch(() => null)) as { url?: unknown } | null;
+      if (typeof data?.url !== "string" || data.url.length === 0) {
+        setError({ locale, message: t("errors.invalidResponse") });
+        return;
+      }
       router.push(data.url);
     } catch {
-      setError("Не удалось создать доску. Попробуйте ещё раз.");
+      setError({ locale, message: t("home.createFailed") });
     } finally {
       setLoading(false);
     }
@@ -54,7 +68,7 @@ export const CreateBoardButton = () => {
       }}
     >
       <label htmlFor="board-title" className="block text-sm font-medium">
-        Название ретроспективы
+        {t("home.boardTitleLabel")}
       </label>
       <div className="flex flex-col gap-3 sm:flex-row">
         <Input
@@ -62,17 +76,17 @@ export const CreateBoardButton = () => {
           value={title}
           onChange={(event) => {
             setTitle(event.target.value);
-            if (error) {
+            if (visibleError) {
               setError(null);
             }
           }}
-          placeholder="Например, Ретро команды за июль"
+          placeholder={t("home.boardTitlePlaceholder")}
           maxLength={120}
           disabled={loading}
           autoFocus
           required
-          aria-invalid={Boolean(error)}
-          aria-describedby={error ? "board-title-error" : undefined}
+          aria-invalid={Boolean(visibleError)}
+          aria-describedby={visibleError ? "board-title-error" : undefined}
           className="h-11 bg-card sm:flex-1"
         />
         <Button
@@ -82,12 +96,12 @@ export const CreateBoardButton = () => {
           disabled={loading || title.trim().length === 0}
         >
           {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-          {loading ? "Создаём..." : "Создать доску"}
+          {loading ? t("home.creating") : t("home.create")}
         </Button>
       </div>
-      {error ? (
+      {visibleError ? (
         <p id="board-title-error" role="alert" className="text-sm text-destructive">
-          {error}
+          {visibleError}
         </p>
       ) : null}
     </form>

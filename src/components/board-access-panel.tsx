@@ -23,6 +23,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { readApiError } from "@/i18n/api-errors";
+import type { Locale } from "@/i18n/locales";
+import { useI18n } from "@/i18n/provider";
 import { MAX_PARTICIPANT_INVITATION_USES } from "@/lib/constants/access";
 
 export type BoardViewer = {
@@ -46,19 +49,10 @@ type Participant = {
   createdAt: string;
 };
 
-type ApiErrorPayload = {
-  error?: { message?: string };
+type LocalizedError = {
+  locale: Locale;
+  message: string;
 };
-
-const readApiError = async (response: Response, fallback: string) => {
-  const data = (await response.json().catch(() => null)) as ApiErrorPayload | null;
-  return data?.error?.message ?? fallback;
-};
-
-const formatDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
-  dateStyle: "medium",
-  timeStyle: "short",
-}).format(new Date(value));
 
 const sectionHeadingClassName = "text-base font-semibold tracking-tight";
 
@@ -80,11 +74,13 @@ export const BoardAccessContent = ({
   disabled?: boolean;
 }) => {
   const router = useRouter();
+  const { formatDate, formatNumber, locale, t } = useI18n();
+  const i18nRef = useRef({ formatNumber, locale, t });
   const isOwner = viewer.role === "OWNER";
   const invitationInputRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [action, setAction] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LocalizedError | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [freshInviteUrl, setFreshInviteUrl] = useState<string | null>(null);
@@ -96,7 +92,16 @@ export const BoardAccessContent = ({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [displayName, setDisplayName] = useState(viewer.displayName);
-  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
+  const [displayNameError, setDisplayNameError] = useState<LocalizedError | null>(null);
+
+  const visibleError = error?.locale === locale ? error.message : null;
+  const visibleDisplayNameError = displayNameError?.locale === locale
+    ? displayNameError.message
+    : null;
+
+  useEffect(() => {
+    i18nRef.current = { formatNumber, locale, t };
+  }, [formatNumber, locale, t]);
 
   const busy = disabled || action !== null;
   const parsedInvitationMaxUses = Number(invitationMaxUses);
@@ -113,6 +118,7 @@ export const BoardAccessContent = ({
       return;
     }
 
+    const operationI18n = i18nRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -124,7 +130,14 @@ export const BoardAccessContent = ({
         const failedResponse = !invitationsResponse.ok
           ? invitationsResponse
           : participantsResponse;
-        setError(await readApiError(failedResponse, "Не удалось загрузить настройки доступа."));
+        setError({
+          locale: operationI18n.locale,
+          message: await readApiError(
+            failedResponse,
+            operationI18n.t,
+            "access.errors.load",
+          ),
+        });
         return;
       }
 
@@ -137,7 +150,10 @@ export const BoardAccessContent = ({
       setInvitations(invitationData.invitations);
       setParticipants(participantData.participants);
     } catch {
-      setError("Не удалось загрузить настройки доступа. Проверьте соединение.");
+      setError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.loadNetwork"),
+      });
     } finally {
       setLoading(false);
     }
@@ -157,13 +173,20 @@ export const BoardAccessContent = ({
   }, [freshInviteUrl]);
 
   const createInvitation = async () => {
+    const operationI18n = { locale, t };
     const maxUses = Number(invitationMaxUses);
     if (
       !Number.isInteger(maxUses)
       || maxUses < 1
       || maxUses > MAX_PARTICIPANT_INVITATION_USES
     ) {
-      setError(`Введите целое число от 1 до ${MAX_PARTICIPANT_INVITATION_USES}.`);
+      setError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.invalidMaxUses", {
+          min: formatNumber(1),
+          max: formatNumber(MAX_PARTICIPANT_INVITATION_USES),
+        }),
+      });
       return;
     }
 
@@ -175,23 +198,40 @@ export const BoardAccessContent = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ maxUses }),
       });
+      if (!response.ok) {
+        setError({
+          locale: operationI18n.locale,
+          message: await readApiError(
+            response,
+            operationI18n.t,
+            "access.errors.createInvitation",
+          ),
+        });
+        return;
+      }
       const data = (await response.json().catch(() => null)) as {
         joinPath?: string;
-        error?: { message?: string };
       } | null;
-      if (!response.ok || !data?.joinPath) {
-        setError(data?.error?.message ?? "Не удалось создать приглашение.");
+      if (!data?.joinPath) {
+        setError({
+          locale: operationI18n.locale,
+          message: operationI18n.t("errors.invalidResponse"),
+        });
         return;
       }
 
       setFreshInviteUrl(new URL(data.joinPath, window.location.origin).toString());
       setFreshInviteMaxUses(maxUses);
       await loadOwnerData();
-      toast.success(maxUses === 1
-        ? "Приглашение на один вход создано"
-        : `Приглашение на ${maxUses} входов создано`);
+      toast.success(i18nRef.current.t("access.invitation.createdToast", {
+        count: maxUses,
+        formattedCount: i18nRef.current.formatNumber(maxUses),
+      }));
     } catch {
-      setError("Не удалось создать приглашение. Проверьте соединение.");
+      setError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.createInvitationNetwork"),
+      });
     } finally {
       setAction(null);
     }
@@ -204,9 +244,9 @@ export const BoardAccessContent = ({
 
     try {
       await navigator.clipboard.writeText(freshInviteUrl);
-      toast.success("Ссылка скопирована");
+      toast.success(i18nRef.current.t("access.invitation.copiedToast"));
     } catch {
-      setError("Браузер не разрешил скопировать ссылку. Выделите её вручную.");
+      setError({ locale, message: t("access.errors.copy") });
     }
   };
 
@@ -215,6 +255,7 @@ export const BoardAccessContent = ({
       return;
     }
 
+    const operationI18n = { locale, t };
     setAction(`revoke-invitation:${revokeInvitationId}`);
     setError(null);
     try {
@@ -223,7 +264,14 @@ export const BoardAccessContent = ({
         { method: "DELETE" },
       );
       if (!response.ok) {
-        setError(await readApiError(response, "Не удалось отозвать приглашение."));
+        setError({
+          locale: operationI18n.locale,
+          message: await readApiError(
+            response,
+            operationI18n.t,
+            "access.errors.revokeInvitation",
+          ),
+        });
         return;
       }
       setInvitations((current) => current.map((invitation) =>
@@ -233,9 +281,12 @@ export const BoardAccessContent = ({
       setFreshInviteUrl(null);
       setFreshInviteMaxUses(null);
       setRevokeInvitationId(null);
-      toast.success("Приглашение отозвано");
+      toast.success(i18nRef.current.t("access.invitation.revokedToast"));
     } catch {
-      setError("Не удалось отозвать приглашение. Проверьте соединение.");
+      setError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.revokeInvitationNetwork"),
+      });
     } finally {
       setAction(null);
     }
@@ -246,6 +297,7 @@ export const BoardAccessContent = ({
       return;
     }
 
+    const operationI18n = { locale, t };
     setAction(`revoke-participant:${revokeParticipantId}`);
     setError(null);
     try {
@@ -254,21 +306,32 @@ export const BoardAccessContent = ({
         { method: "DELETE" },
       );
       if (!response.ok) {
-        setError(await readApiError(response, "Не удалось отозвать доступ участника."));
+        setError({
+          locale: operationI18n.locale,
+          message: await readApiError(
+            response,
+            operationI18n.t,
+            "access.errors.revokeParticipant",
+          ),
+        });
         return;
       }
       setParticipants((current) => current.filter((participant) =>
         participant.id !== revokeParticipantId));
       setRevokeParticipantId(null);
-      toast.success("Доступ участника отозван");
+      toast.success(i18nRef.current.t("access.participant.revokedToast"));
     } catch {
-      setError("Не удалось отозвать доступ участника. Проверьте соединение.");
+      setError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.revokeParticipantNetwork"),
+      });
     } finally {
       setAction(null);
     }
   };
 
   const leave = async () => {
+    const operationI18n = { locale, t };
     setAction("leave");
     setError(null);
     try {
@@ -276,44 +339,65 @@ export const BoardAccessContent = ({
         method: "DELETE",
       });
       if (!response.ok) {
-        setError(await readApiError(response, "Не удалось покинуть доску."));
+        setError({
+          locale: operationI18n.locale,
+          message: await readApiError(response, operationI18n.t, "access.errors.leave"),
+        });
         return;
       }
       router.replace("/");
       router.refresh();
     } catch {
-      setError("Не удалось покинуть доску. Проверьте соединение.");
+      setError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.leaveNetwork"),
+      });
     } finally {
       setAction(null);
     }
   };
 
   const deleteBoard = async () => {
-    if (deleteConfirmation !== "УДАЛИТЬ") {
+    if (deleteConfirmation !== t("access.danger.deleteToken")) {
       return;
     }
 
+    const operationI18n = { locale, t };
     setAction("delete-board");
     setError(null);
     try {
       const response = await fetch(`/api/boards/${boardId}`, { method: "DELETE" });
       if (!response.ok) {
-        setError(await readApiError(response, "Не удалось удалить доску."));
+        setError({
+          locale: operationI18n.locale,
+          message: await readApiError(
+            response,
+            operationI18n.t,
+            "access.errors.deleteBoard",
+          ),
+        });
         return;
       }
       router.replace("/");
       router.refresh();
     } catch {
-      setError("Не удалось удалить доску. Проверьте соединение.");
+      setError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.deleteBoardNetwork"),
+      });
     } finally {
       setAction(null);
     }
   };
 
   const saveDisplayName = async () => {
+    const operationI18n = { locale, t };
     const normalizedDisplayName = displayName.trim();
     if (!normalizedDisplayName || normalizedDisplayName.length > 80) {
-      setDisplayNameError("Введите от 1 до 80 символов.");
+      setDisplayNameError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.displayNameValidation"),
+      });
       return;
     }
     if (normalizedDisplayName === viewer.displayName) {
@@ -331,14 +415,20 @@ export const BoardAccessContent = ({
         body: JSON.stringify({ displayName: normalizedDisplayName }),
       });
       if (!response.ok) {
-        setDisplayNameError(await readApiError(response, "Не удалось изменить имя."));
+        setDisplayNameError({
+          locale: operationI18n.locale,
+          message: await readApiError(response, operationI18n.t, "access.errors.rename"),
+        });
         return;
       }
       setDisplayName(normalizedDisplayName);
       await onChanged();
-      toast.success("Имя изменено");
+      toast.success(i18nRef.current.t("access.profile.savedToast"));
     } catch {
-      setDisplayNameError("Не удалось изменить имя. Проверьте соединение.");
+      setDisplayNameError({
+        locale: operationI18n.locale,
+        message: operationI18n.t("access.errors.renameNetwork"),
+      });
     } finally {
       setAction(null);
     }
@@ -348,10 +438,10 @@ export const BoardAccessContent = ({
     <section className="space-y-3" aria-labelledby="membership-profile-heading">
       <div>
         <h3 id="membership-profile-heading" className="text-sm font-semibold">
-          Ваше имя
+          {t("access.profile.heading")}
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          Оно отображается на этой доске и не связано с аккаунтом.
+          {t("access.profile.description")}
         </p>
       </div>
       <form
@@ -363,7 +453,7 @@ export const BoardAccessContent = ({
       >
         <div className="min-w-0 flex-1 space-y-1">
           <label htmlFor="membership-display-name" className="sr-only">
-            Ваше имя на доске
+            {t("access.profile.inputLabel")}
           </label>
           <Input
             id="membership-display-name"
@@ -375,12 +465,14 @@ export const BoardAccessContent = ({
             maxLength={80}
             autoComplete="name"
             disabled={busy}
-            aria-invalid={Boolean(displayNameError)}
-            aria-describedby={displayNameError ? "membership-display-name-error" : undefined}
+            aria-invalid={Boolean(visibleDisplayNameError)}
+            aria-describedby={visibleDisplayNameError
+              ? "membership-display-name-error"
+              : undefined}
           />
-          {displayNameError ? (
+          {visibleDisplayNameError ? (
             <p id="membership-display-name-error" role="alert" className="text-sm text-destructive">
-              {displayNameError}
+              {visibleDisplayNameError}
             </p>
           ) : null}
         </div>
@@ -390,7 +482,7 @@ export const BoardAccessContent = ({
           disabled={busy || displayName.trim() === viewer.displayName}
         >
           {action === "rename-membership" ? <Loader2 className="size-4 animate-spin" /> : null}
-          Сохранить
+          {t("access.profile.save")}
         </Button>
       </form>
     </section>
@@ -406,10 +498,10 @@ export const BoardAccessContent = ({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h3 id="delete-board-heading" className="text-sm font-medium">
-              Удалить доску
+              {t("access.danger.heading")}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Карточки, голоса, решения, приглашения и доступы будут удалены.
+              {t("access.danger.description")}
             </p>
           </div>
           <Button
@@ -423,7 +515,7 @@ export const BoardAccessContent = ({
             }}
           >
             <Trash2 className="size-4" />
-            Удалить
+            {t("access.danger.openButton")}
           </Button>
         </div>
 
@@ -437,14 +529,16 @@ export const BoardAccessContent = ({
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Удалить доску?</DialogTitle>
+              <DialogTitle>{t("access.danger.confirmTitle")}</DialogTitle>
               <DialogDescription>
-                Данные и все права доступа будут удалены без возможности восстановления.
+                {t("access.danger.confirmDescription")}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
               <label htmlFor="delete-board-confirmation" className="text-sm font-medium text-destructive">
-                Введите УДАЛИТЬ для подтверждения
+                {t("access.danger.tokenPrompt", {
+                  token: t("access.danger.deleteToken"),
+                })}
               </label>
               <Input
                 id="delete-board-confirmation"
@@ -452,10 +546,12 @@ export const BoardAccessContent = ({
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
                 autoComplete="off"
                 disabled={action === "delete-board"}
-                aria-label="Подтверждение удаления доски"
+                aria-label={t("access.danger.confirmationLabel")}
               />
             </div>
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+            {visibleError
+              ? <p role="alert" className="text-sm text-destructive">{visibleError}</p>
+              : null}
             <DialogFooter>
               <Button
                 type="button"
@@ -463,18 +559,21 @@ export const BoardAccessContent = ({
                 disabled={action === "delete-board"}
                 onClick={() => setDeleteOpen(false)}
               >
-                Отмена
+                {t("common.cancel")}
               </Button>
               <Button
                 type="button"
                 variant="destructive"
-                disabled={action === "delete-board" || deleteConfirmation !== "УДАЛИТЬ"}
+                disabled={
+                  action === "delete-board"
+                  || deleteConfirmation !== t("access.danger.deleteToken")
+                }
                 onClick={() => void deleteBoard()}
               >
                 {action === "delete-board"
                   ? <Loader2 className="size-4 animate-spin" />
                   : <Trash2 className="size-4" />}
-                Удалить доску
+                {t("access.danger.confirmButton")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -488,26 +587,26 @@ export const BoardAccessContent = ({
       <section className="space-y-6" aria-labelledby="participation-heading">
         <div className="space-y-1">
           <h2 id="participation-heading" className={sectionHeadingClassName}>
-            Участие
+            {t("access.participation.heading")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Вы участвуете как <span className="font-medium text-foreground">{viewer.displayName}</span>.
+            {t("access.participation.current", { name: viewer.displayName })}
           </p>
         </div>
 
         {profileSection}
 
-        {error && !leaveOpen ? (
+        {visibleError && !leaveOpen ? (
           <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            {error}
+            {visibleError}
           </p>
         ) : null}
 
         <div className="flex items-start justify-between gap-4 border-t pt-5">
           <div className="min-w-0">
-            <h3 className="text-sm font-medium">Покинуть доску</h3>
+            <h3 className="text-sm font-medium">{t("access.participation.leaveTitle")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Для повторного входа понадобится новое приглашение владельца.
+              {t("access.participation.leaveDescription")}
             </p>
           </div>
           <Button
@@ -520,7 +619,7 @@ export const BoardAccessContent = ({
             }}
           >
             <LogOut className="size-4" />
-            Выйти
+            {t("access.participation.leaveOpenButton")}
           </Button>
         </div>
 
@@ -534,12 +633,14 @@ export const BoardAccessContent = ({
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Покинуть доску?</DialogTitle>
+              <DialogTitle>{t("access.participation.confirmTitle")}</DialogTitle>
               <DialogDescription>
-                Текущая анонимная membership будет отозвана. UUID доски не вернёт доступ.
+                {t("access.participation.confirmDescription")}
               </DialogDescription>
             </DialogHeader>
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+            {visibleError
+              ? <p role="alert" className="text-sm text-destructive">{visibleError}</p>
+              : null}
             <DialogFooter>
               <Button
                 type="button"
@@ -547,7 +648,7 @@ export const BoardAccessContent = ({
                 disabled={action === "leave"}
                 onClick={() => setLeaveOpen(false)}
               >
-                Отмена
+                {t("common.cancel")}
               </Button>
               <Button
                 type="button"
@@ -558,7 +659,7 @@ export const BoardAccessContent = ({
                 {action === "leave"
                   ? <Loader2 className="size-4 animate-spin" />
                   : <LogOut className="size-4" />}
-                Покинуть доску
+                {t("access.participation.confirmButton")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -572,16 +673,16 @@ export const BoardAccessContent = ({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <h2 id="invitation-heading" className={sectionHeadingClassName}>
-            Доступ
+            {t("access.invitation.heading")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Создайте одну ссылку для нужного количества участников.
+            {t("access.invitation.description")}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1">
             <label htmlFor="invitation-max-uses" className="text-xs font-medium text-muted-foreground">
-              Количество входов
+              {t("access.invitation.maxUsesLabel")}
             </label>
             <Input
               id="invitation-max-uses"
@@ -608,16 +709,16 @@ export const BoardAccessContent = ({
             {action === "create-invitation"
               ? <Loader2 className="size-4 animate-spin" />
               : <UserPlus className="size-4" />}
-            Создать ссылку
+            {t("access.invitation.createLink")}
           </Button>
         </div>
       </div>
 
       {profileSection}
 
-      {error && revokeInvitationId === null && revokeParticipantId === null ? (
+      {visibleError && revokeInvitationId === null && revokeParticipantId === null ? (
         <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {error}
+          {visibleError}
         </p>
       ) : null}
 
@@ -625,11 +726,13 @@ export const BoardAccessContent = ({
         <div className="space-y-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
           <div>
             <label htmlFor="fresh-invite" className="text-sm font-medium">
-              Ссылка показывается только сейчас
+              {t("access.invitation.freshLabel")}
             </label>
             <p className="mt-1 text-xs text-muted-foreground">
-              Доступно входов: {freshInviteMaxUses ?? 1}. Ссылку можно отозвать в любой момент.
-              Любой получивший её сможет занять один из доступных входов.
+              {t("access.invitation.freshDescription", {
+                count: freshInviteMaxUses ?? 1,
+                formattedCount: formatNumber(freshInviteMaxUses ?? 1),
+              })}
             </p>
           </div>
           <Input
@@ -641,7 +744,7 @@ export const BoardAccessContent = ({
           />
           <Button type="button" onClick={() => void copyInvitation()}>
             <Copy className="size-4" />
-            Скопировать
+            {t("access.invitation.copyButton")}
           </Button>
         </div>
       ) : null}
@@ -649,17 +752,27 @@ export const BoardAccessContent = ({
       <section className="space-y-3" aria-labelledby="active-invitations-heading">
         <div className="flex items-center justify-between gap-3">
           <h3 id="active-invitations-heading" className="text-sm font-semibold">
-            Приглашения
+            {t("access.invitation.listHeading")}
           </h3>
-          <Badge variant="outline">{invitations.length}</Badge>
+          <Badge
+            variant="outline"
+            aria-label={t("access.invitation.count", {
+              count: invitations.length,
+              formattedCount: formatNumber(invitations.length),
+            })}
+          >
+            {formatNumber(invitations.length)}
+          </Badge>
         </div>
         {loading ? (
           <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground" role="status">
             <Loader2 className="size-4 animate-spin" />
-            Загружаем доступы…
+            {t("access.invitation.loading")}
           </div>
         ) : invitations.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">Приглашений пока нет.</p>
+          <p className="py-2 text-sm text-muted-foreground">
+            {t("access.invitation.empty")}
+          </p>
         ) : (
           <ul className="divide-y rounded-lg border">
             {invitations.map((invitation) => (
@@ -667,13 +780,29 @@ export const BoardAccessContent = ({
                 <div className="min-w-0 space-y-1 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <KeyRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <span>Создано {formatDate(invitation.createdAt)}</span>
+                    <span>
+                      {t("access.invitation.createdAt", {
+                        date: formatDate(invitation.createdAt, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }),
+                      })}
+                    </span>
                     <Badge variant={invitation.active ? "outline" : "secondary"}>
-                      {invitation.active ? "Активно" : "Закрыто"}
+                      {invitation.active
+                        ? t("access.invitation.active")
+                        : t("access.invitation.closed")}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Использовано {invitation.useCount} из {invitation.maxUses}; до {formatDate(invitation.expiresAt)}
+                    {t("access.invitation.usage", {
+                      used: formatNumber(invitation.useCount),
+                      total: formatNumber(invitation.maxUses),
+                      date: formatDate(invitation.expiresAt, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }),
+                    })}
                   </p>
                 </div>
                 {invitation.active ? (
@@ -681,7 +810,7 @@ export const BoardAccessContent = ({
                     type="button"
                     size="icon"
                     variant="ghost"
-                    aria-label="Отозвать приглашение"
+                    aria-label={t("access.invitation.revokeLabel")}
                     disabled={busy}
                     onClick={() => {
                       setError(null);
@@ -701,29 +830,48 @@ export const BoardAccessContent = ({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 id="participants-heading" className="text-sm font-semibold">
-              Участники
+              {t("access.participant.heading")}
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Отозванный доступ закроется после ближайшей проверки.
+              {t("access.participant.description")}
             </p>
           </div>
-          <Badge variant="outline">{participants.length}</Badge>
+          <Badge
+            variant="outline"
+            aria-label={t("access.participant.count", {
+              count: participants.length,
+              formattedCount: formatNumber(participants.length),
+            })}
+          >
+            {formatNumber(participants.length)}
+          </Badge>
         </div>
         {!loading && participants.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">Активных участников пока нет.</p>
+          <p className="py-2 text-sm text-muted-foreground">
+            {t("access.participant.empty")}
+          </p>
         ) : (
           <ul className="divide-y rounded-lg border">
             {participants.map((participant) => (
               <li key={participant.id} className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{participant.displayName}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">С {formatDate(participant.createdAt)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("access.participant.since", {
+                      date: formatDate(participant.createdAt, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }),
+                    })}
+                  </p>
                 </div>
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
-                  aria-label={`Отозвать доступ участника ${participant.displayName}`}
+                  aria-label={t("access.participant.revokeLabel", {
+                    name: participant.displayName,
+                  })}
                   disabled={busy}
                   onClick={() => {
                     setError(null);
@@ -748,21 +896,23 @@ export const BoardAccessContent = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Отозвать приглашение?</DialogTitle>
+            <DialogTitle>{t("access.invitation.revokeTitle")}</DialogTitle>
             <DialogDescription>
-              Ссылка перестанет работать, если участник ещё не использовал её.
+              {t("access.invitation.revokeDescription")}
             </DialogDescription>
           </DialogHeader>
-          {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+          {visibleError
+            ? <p role="alert" className="text-sm text-destructive">{visibleError}</p>
+            : null}
           <DialogFooter>
             <Button type="button" variant="secondary" disabled={busy} onClick={() => setRevokeInvitationId(null)}>
-              Отмена
+              {t("common.cancel")}
             </Button>
             <Button type="button" variant="destructive" disabled={busy} onClick={() => void revokeInvitation()}>
               {action?.startsWith("revoke-invitation:")
                 ? <Loader2 className="size-4 animate-spin" />
                 : <Trash2 className="size-4" />}
-              Отозвать
+              {t("access.invitation.revokeButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -778,21 +928,23 @@ export const BoardAccessContent = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Отозвать доступ?</DialogTitle>
+            <DialogTitle>{t("access.participant.revokeTitle")}</DialogTitle>
             <DialogDescription>
-              Участник потеряет доступ к доске. Для возвращения понадобится новое приглашение.
+              {t("access.participant.revokeDescription")}
             </DialogDescription>
           </DialogHeader>
-          {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+          {visibleError
+            ? <p role="alert" className="text-sm text-destructive">{visibleError}</p>
+            : null}
           <DialogFooter>
             <Button type="button" variant="secondary" disabled={busy} onClick={() => setRevokeParticipantId(null)}>
-              Отмена
+              {t("common.cancel")}
             </Button>
             <Button type="button" variant="destructive" disabled={busy} onClick={() => void revokeParticipant()}>
               {action?.startsWith("revoke-participant:")
                 ? <Loader2 className="size-4 animate-spin" />
                 : <UserMinus className="size-4" />}
-              Отозвать доступ
+              {t("access.participant.revokeButton")}
             </Button>
           </DialogFooter>
         </DialogContent>

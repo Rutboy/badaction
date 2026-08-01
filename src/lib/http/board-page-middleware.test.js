@@ -65,7 +65,7 @@ test("valid visitor cookie is reused without another Set-Cookie", async () => {
   assert.equal(secondResponse.cookies.get(VISITOR_COOKIE_NAME), undefined);
 });
 
-test("rate-limited first request returns 429, Retry-After, and the signed cookie", async () => {
+test("rate-limited first request returns localized HTML, Retry-After, and the signed cookie", async () => {
   const middleware = createBoardPageMiddleware({
     env: ENV,
     authorizeBoardAccess: async () => {},
@@ -73,7 +73,7 @@ test("rate-limited first request returns 429, Retry-After, and the signed cookie
       throw new ApiError(
         429,
         "RATE_LIMIT_EXCEEDED",
-        "Слишком много запросов. Попробуйте позже.",
+        "Too many requests. Try again later.",
         { retryAfterSeconds: 17 },
       );
     },
@@ -86,17 +86,16 @@ test("rate-limited first request returns 429, Retry-After, and the signed cookie
   assert.equal(response.status, 429);
   assert.equal(response.headers.get("retry-after"), "17");
   assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("content-language"), "en");
+  assert.match(response.headers.get("content-type"), /^text\/html/);
   assert.ok(response.cookies.get(VISITOR_COOKIE_NAME)?.value);
-  assert.deepEqual(await response.json(), {
-    error: {
-      code: "RATE_LIMIT_EXCEEDED",
-      message: "Слишком много запросов. Попробуйте позже.",
-      details: { retryAfterSeconds: 17 },
-    },
-  });
+  const html = await response.text();
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /Too many requests\. Try again later\./);
+  assert.doesNotMatch(html, /retryAfterSeconds|RATE_LIMIT_EXCEEDED/);
 });
 
-test("board authorization denial returns 404 without continuing to render", async () => {
+test("board authorization denial returns localized masked HTML without a second page lookup", async () => {
   let rateLimitCalls = 0;
   const middleware = createBoardPageMiddleware({
     env: ENV,
@@ -104,24 +103,25 @@ test("board authorization denial returns 404 without continuing to render", asyn
       rateLimitCalls += 1;
     },
     authorizeBoardAccess: async () => {
-      throw new ApiError(404, "BOARD_NOT_FOUND", "Доска не найдена");
+      throw new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
     },
   });
 
   const response = await middleware(
-    new NextRequest(`https://retro.example/boards/${BOARD_ID}`),
+    new NextRequest(`https://retro.example/boards/${BOARD_ID}`, {
+      headers: { "accept-language": "es-MX,es;q=0.9" },
+    }),
   );
 
   assert.equal(response.status, 404);
   assert.equal(rateLimitCalls, 0);
   assert.equal(response.headers.get("x-middleware-next"), null);
+  assert.equal(response.headers.get("content-language"), "es");
   assert.ok(response.cookies.get(VISITOR_COOKIE_NAME)?.value);
-  assert.deepEqual(await response.json(), {
-    error: {
-      code: "BOARD_NOT_FOUND",
-      message: "Доска не найдена",
-    },
-  });
+  const html = await response.text();
+  assert.match(html, /<html lang="es">/);
+  assert.match(html, /Tablero no disponible/);
+  assert.doesNotMatch(html, /Board not found\./);
 });
 
 test("database authorization failure returns 503 without continuing to render", async () => {
@@ -132,18 +132,22 @@ test("database authorization failure returns 503 without continuing to render", 
       throw new ApiError(
         503,
         "DATABASE_UNAVAILABLE",
-        "База данных временно недоступна.",
+        "The database is temporarily unavailable.",
       );
     },
   });
 
   const response = await middleware(
-    new NextRequest(`https://retro.example/boards/${BOARD_ID}`),
+    new NextRequest(`https://retro.example/boards/${BOARD_ID}`, {
+      headers: { "accept-language": "ru-RU" },
+    }),
   );
 
   assert.equal(response.status, 503);
   assert.equal(response.headers.get("x-middleware-next"), null);
   assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("content-language"), "ru");
+  assert.match(await response.text(), /Сервис временно недоступен/);
 });
 
 test("invalid visitor cookie is rotated while authorization remains denied", async () => {
@@ -153,7 +157,7 @@ test("invalid visitor cookie is rotated while authorization remains denied", asy
     rateLimitBoardRead: async () => {},
     authorizeBoardAccess: async (_boardId, visitorPayload) => {
       authorizedPayload = visitorPayload;
-      throw new ApiError(404, "BOARD_NOT_FOUND", "Доска не найдена");
+      throw new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
     },
   });
 
@@ -232,7 +236,7 @@ test("aging cookie refresh preserves a revoked session tombstone before issuing 
     },
     authorizeBoardAccess: async () => {
       events.push(["authorize"]);
-      throw new ApiError(404, "BOARD_NOT_FOUND", "Доска не найдена");
+      throw new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
     },
     rateLimitBoardRead: async () => {},
   });
@@ -246,6 +250,7 @@ test("aging cookie refresh preserves a revoked session tombstone before issuing 
 
   assert.deepEqual(events, [["preserve", payload], ["authorize"]]);
   assert.equal(response.status, 404);
+  assert.equal(response.headers.get("x-middleware-next"), null);
   assert.ok(refreshedCookie);
   assert.notEqual(refreshedCookie, agingCookie);
   assert.equal(
@@ -266,7 +271,7 @@ test("aging cookie is not refreshed when tombstone preservation fails", async ()
       throw new ApiError(
         503,
         "DATABASE_UNAVAILABLE",
-        "База данных временно недоступна.",
+        "The database is temporarily unavailable.",
       );
     },
     authorizeBoardAccess: async () => {

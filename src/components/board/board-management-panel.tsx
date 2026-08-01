@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   FileText,
   Info,
+  Languages,
   Settings2,
   ShieldCheck,
   Trash2,
@@ -17,6 +18,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { BoardAccessContent } from "@/components/board-access-panel";
 import type { BoardManagementSection } from "@/components/board/board-management-types";
 import { BoardSettingsContent } from "@/components/board-settings-panel";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,6 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { MessageKey } from "@/i18n/messages";
+import { useI18n } from "@/i18n/provider";
 import type { BoardSnapshot } from "@/lib/pagination/board-state";
 import { cn } from "@/lib/utils";
 
@@ -42,30 +46,70 @@ export type BoardManagementPanelProps = {
 
 type NavigationItem = {
   value: BoardManagementSection;
-  label: string;
+  labelKey: MessageKey;
   icon: typeof Settings2;
 };
 
 const OWNER_NAVIGATION: readonly NavigationItem[] = [
-  { value: "general", label: "Основное", icon: Settings2 },
-  { value: "columns", label: "Колонки", icon: Columns3 },
-  { value: "access", label: "Доступ", icon: Users },
-  { value: "export", label: "Экспорт", icon: Download },
-  { value: "about", label: "О доске", icon: Info },
-  { value: "danger", label: "Опасные действия", icon: Trash2 },
+  {
+    value: "general",
+    labelKey: "boardShell.management.sections.general",
+    icon: Settings2,
+  },
+  {
+    value: "interface",
+    labelKey: "boardShell.management.sections.interface",
+    icon: Languages,
+  },
+  {
+    value: "columns",
+    labelKey: "boardShell.management.sections.columns",
+    icon: Columns3,
+  },
+  {
+    value: "access",
+    labelKey: "boardShell.management.sections.access",
+    icon: Users,
+  },
+  {
+    value: "export",
+    labelKey: "boardShell.management.sections.export",
+    icon: Download,
+  },
+  {
+    value: "about",
+    labelKey: "boardShell.management.sections.about",
+    icon: Info,
+  },
+  {
+    value: "danger",
+    labelKey: "boardShell.management.sections.danger",
+    icon: Trash2,
+  },
 ];
 
 const PARTICIPANT_NAVIGATION: readonly NavigationItem[] = [
-  { value: "access", label: "Участие", icon: UserRound },
-  { value: "export", label: "Экспорт", icon: Download },
-  { value: "about", label: "О доске", icon: Info },
+  {
+    value: "interface",
+    labelKey: "boardShell.management.sections.interface",
+    icon: Languages,
+  },
+  {
+    value: "access",
+    labelKey: "boardShell.management.sections.participation",
+    icon: UserRound,
+  },
+  {
+    value: "export",
+    labelKey: "boardShell.management.sections.export",
+    icon: Download,
+  },
+  {
+    value: "about",
+    labelKey: "boardShell.management.sections.about",
+    icon: Info,
+  },
 ];
-
-const formatExpirationDate = (value: string): string =>
-  new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "long",
-    timeZone: "UTC",
-  }).format(new Date(value));
 
 const ManagementNavigation = ({
   items,
@@ -77,52 +121,57 @@ const ManagementNavigation = ({
   activeSection: BoardManagementSection;
   onSectionChange: (section: BoardManagementSection) => void;
   orientation: "horizontal" | "vertical";
-}) => (
-  <nav
-    aria-label="Разделы управления доской"
-    className={cn(
-      orientation === "horizontal"
-        ? "flex gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        : "flex w-48 shrink-0 flex-col gap-1 border-r p-3",
-    )}
-  >
-    {items.map(({ value, label, icon: Icon }) => (
-      <Button
-        key={value}
-        type="button"
-        size="sm"
-        variant={activeSection === value ? "secondary" : "ghost"}
-        aria-current={activeSection === value ? "page" : undefined}
-        className={cn(
-          "shrink-0",
-          orientation === "vertical" && "w-full justify-start",
-        )}
-        onClick={() => onSectionChange(value)}
-      >
-        <Icon className="size-4" aria-hidden="true" />
-        {label}
-      </Button>
-    ))}
-  </nav>
-);
+}) => {
+  const { t } = useI18n();
+
+  return (
+    <nav
+      aria-label={t("boardShell.management.navigationLabel")}
+      className={cn(
+        orientation === "horizontal"
+          ? "flex gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          : "flex w-48 shrink-0 flex-col gap-1 border-r p-3",
+      )}
+    >
+      {items.map(({ value, labelKey, icon: Icon }) => (
+        <Button
+          key={value}
+          type="button"
+          size="sm"
+          variant={activeSection === value ? "secondary" : "ghost"}
+          aria-current={activeSection === value ? "page" : undefined}
+          className={cn(
+            "shrink-0",
+            orientation === "vertical" && "w-full justify-start",
+          )}
+          onClick={() => onSectionChange(value)}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+          {t(labelKey)}
+        </Button>
+      ))}
+    </nav>
+  );
+};
 
 const ExportSection = ({ boardId }: { boardId: string }) => {
+  const { t } = useI18n();
   const exports = [
     {
       label: "JSON",
-      description: "Полная структура доски для обработки и резервной копии.",
+      description: t("boardShell.management.export.jsonDescription"),
       href: `/api/boards/${boardId}/export.json`,
       icon: FileBraces,
     },
     {
       label: "CSV",
-      description: "Табличный формат для электронных таблиц.",
+      description: t("boardShell.management.export.csvDescription"),
       href: `/api/boards/${boardId}/export.csv`,
       icon: FileSpreadsheet,
     },
     {
       label: "Markdown",
-      description: "Читаемый текст для документов и заметок.",
+      description: t("boardShell.management.export.markdownDescription"),
       href: `/api/boards/${boardId}/export.md`,
       icon: FileText,
     },
@@ -135,10 +184,10 @@ const ExportSection = ({ boardId }: { boardId: string }) => {
           id="board-export-heading"
           className="text-base font-semibold tracking-tight"
         >
-          Экспорт
+          {t("boardShell.management.export.title")}
         </h2>
         <p className="text-sm text-muted-foreground">
-          Выгрузка отражает актуальное состояние доски.
+          {t("boardShell.management.export.description")}
         </p>
       </div>
       <ul className="divide-y rounded-lg border">
@@ -160,8 +209,13 @@ const ExportSection = ({ boardId }: { boardId: string }) => {
               </div>
             </div>
             <Button asChild variant="outline" size="sm">
-              <a href={href} aria-label={`Экспорт ${label}`}>
-                Скачать
+              <a
+                href={href}
+                aria-label={t("boardShell.management.export.downloadLabel", {
+                  format: label,
+                })}
+              >
+                {t("boardShell.management.export.download")}
               </a>
             </Button>
           </li>
@@ -171,52 +225,92 @@ const ExportSection = ({ boardId }: { boardId: string }) => {
   );
 };
 
-const AboutSection = ({ board }: { board: BoardSnapshot }) => (
-  <section className="space-y-6" aria-labelledby="board-about-heading">
-    <div className="space-y-1">
-      <h2
-        id="board-about-heading"
-        className="text-base font-semibold tracking-tight"
-      >
-        О доске
-      </h2>
-      <p className="text-sm text-muted-foreground">
-        Доступ и срок хранения этой ретроспективы.
-      </p>
-    </div>
-    <dl className="divide-y rounded-lg border text-sm">
-      <div className="grid gap-1 p-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
-        <dt className="text-muted-foreground">Название</dt>
-        <dd className="break-words font-medium">{board.title}</dd>
+const InterfaceSection = () => {
+  const { t } = useI18n();
+
+  return (
+    <section className="space-y-6" aria-labelledby="board-interface-heading">
+      <div className="space-y-1">
+        <h2
+          id="board-interface-heading"
+          className="text-base font-semibold tracking-tight"
+        >
+          {t("boardShell.management.interface.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {t("boardShell.management.interface.description")}
+        </p>
       </div>
-      <div className="grid gap-1 p-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
-        <dt className="text-muted-foreground">Ваш доступ</dt>
-        <dd>
-          {board.viewer.displayName} ·{" "}
-          {board.viewer.role === "OWNER" ? "Владелец" : "Участник"}
-        </dd>
+      <div className="flex items-center justify-between gap-4 border-y py-3">
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-medium">
+            {t("boardShell.management.interface.languageLabel")}
+          </p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("boardShell.management.interface.personal")}
+          </p>
+        </div>
+        <LanguageSwitcher className="border" />
       </div>
-      <div className="grid gap-1 p-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
-        <dt className="text-muted-foreground">Данные хранятся до</dt>
-        <dd>
-          <time dateTime={board.expiresAt}>
-            {formatExpirationDate(board.expiresAt)}
-          </time>
-        </dd>
+    </section>
+  );
+};
+
+const AboutSection = ({ board }: { board: BoardSnapshot }) => {
+  const { formatDate, t } = useI18n();
+
+  return (
+    <section className="space-y-6" aria-labelledby="board-about-heading">
+      <div className="space-y-1">
+        <h2
+          id="board-about-heading"
+          className="text-base font-semibold tracking-tight"
+        >
+          {t("boardShell.management.about.title")}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {t("boardShell.management.about.description")}
+        </p>
       </div>
-    </dl>
-    <div className="space-y-2 text-sm leading-6 text-muted-foreground">
-      <p>
-        Аккаунты не используются. Доступ привязан к анонимной сессии этого
-        браузера.
-      </p>
-      <p>
-        Очистка данных браузера приведёт к потере текущего доступа. Участнику
-        понадобится новое приглашение.
-      </p>
-    </div>
-  </section>
-);
+      <dl className="divide-y rounded-lg border text-sm">
+        <div className="grid gap-1 p-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
+          <dt className="text-muted-foreground">
+            {t("boardShell.management.about.name")}
+          </dt>
+          <dd className="break-words font-medium">{board.title}</dd>
+        </div>
+        <div className="grid gap-1 p-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
+          <dt className="text-muted-foreground">
+            {t("boardShell.management.about.access")}
+          </dt>
+          <dd>
+            {board.viewer.displayName} ·{" "}
+            {board.viewer.role === "OWNER"
+              ? t("boardShell.management.about.owner")
+              : t("boardShell.management.about.participant")}
+          </dd>
+        </div>
+        <div className="grid gap-1 p-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
+          <dt className="text-muted-foreground">
+            {t("boardShell.management.about.expiresAt")}
+          </dt>
+          <dd>
+            <time dateTime={board.expiresAt}>
+              {formatDate(board.expiresAt, {
+                dateStyle: "long",
+                timeZone: "UTC",
+              })}
+            </time>
+          </dd>
+        </div>
+      </dl>
+      <div className="space-y-2 text-sm leading-6 text-muted-foreground">
+        <p>{t("boardShell.management.about.sessionDescription")}</p>
+        <p>{t("boardShell.management.about.clearingData")}</p>
+      </div>
+    </section>
+  );
+};
 
 export const BoardManagementPanel = ({
   boardId,
@@ -229,6 +323,7 @@ export const BoardManagementPanel = ({
   onOpenChange,
   onSectionChange,
 }: BoardManagementPanelProps) => {
+  const { t } = useI18n();
   const openerRef = useRef<HTMLElement | null>(null);
   const lastExternalFocusRef = useRef<HTMLElement | null>(null);
   const owner = board.viewer.role === "OWNER";
@@ -330,12 +425,12 @@ export const BoardManagementPanel = ({
                 aria-hidden="true"
               />
             )}
-            <DialogTitle>Управление доской</DialogTitle>
+            <DialogTitle>{t("boardShell.management.title")}</DialogTitle>
           </div>
           <DialogDescription>
             {owner
-              ? "Настройки, доступ, экспорт и срок хранения в одном месте."
-              : "Ваш доступ, экспорт и информация о хранении."}
+              ? t("boardShell.management.ownerDescription")
+              : t("boardShell.management.participantDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -395,6 +490,10 @@ export const BoardManagementPanel = ({
                 active={open && resolvedSection === "access"}
                 disabled={disabled}
               />
+            </div>
+
+            <div hidden={resolvedSection !== "interface"}>
+              <InterfaceSection />
             </div>
 
             <div hidden={resolvedSection !== "export"}>

@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ boa
     const cardResult = uuidParamSchema.safeParse(cardId);
 
     if (!boardResult.success || !cardResult.success) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Некорректный UUID");
+      throw new ApiError(400, "VALIDATION_ERROR", "Invalid UUID.");
     }
 
     await requireActiveBoardMember(boardResult.data, visitorPayload);

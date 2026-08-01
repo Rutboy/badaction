@@ -18,7 +18,7 @@ import { uuidParamSchema } from "@/lib/validators/common";
 const parseBoardId = async (params: Promise<{ boardId: string }>) => {
   const parsed = uuidParamSchema.safeParse((await params).boardId);
   if (!parsed.success) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Некорректный boardId");
+    throw new ApiError(400, "VALIDATION_ERROR", "Invalid boardId.");
   }
   return parsed.data;
 };
@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ boa
     }
     const parsed = createInvitationSchema.safeParse(body);
     if (!parsed.success) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Ошибка валидации приглашения", {
+      throw new ApiError(400, "VALIDATION_ERROR", "Invitation validation failed.", {
         issues: parsed.error.issues,
       });
     }

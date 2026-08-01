@@ -1,6 +1,9 @@
+"use client";
+
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -19,6 +22,8 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   closeClassName?: string;
 }) {
+  const { t } = useI18n();
+
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -39,8 +44,8 @@ function DialogContent({
             closeClassName,
           )}
         >
-          <X className="size-4" />
-          <span className="sr-only">Закрыть</span>
+          <X className="size-4" aria-hidden="true" />
+          <span className="sr-only">{t("common.close")}</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

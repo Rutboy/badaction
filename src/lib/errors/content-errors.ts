@@ -62,42 +62,42 @@ export type BoardExportLimitDetails =
 
 export const contentErrors = {
   invalidCursor: () =>
-    createContentError(400, "INVALID_CURSOR", "Некорректный или устаревший cursor."),
+    createContentError(400, "INVALID_CURSOR", "The cursor is invalid or out of date."),
 
   boardOwnerRequired: () =>
     createContentError(
       403,
       "BOARD_OWNER_REQUIRED",
-      "Операция доступна только владельцу доски.",
+      "Only the board owner can perform this action.",
     ),
 
   cardOwnerRequired: () =>
     createContentError(
       403,
       "CARD_OWNER_REQUIRED",
-      "Можно изменять только карточки, созданные текущим участником.",
+      "You can only change cards created with your current access.",
     ),
 
   boardNotFound: () =>
-    createContentError(404, "BOARD_NOT_FOUND", "Доска не найдена."),
+    createContentError(404, "BOARD_NOT_FOUND", "Board not found."),
 
   columnNotFound: () =>
-    createContentError(404, "COLUMN_NOT_FOUND", "Колонка не найдена."),
+    createContentError(404, "COLUMN_NOT_FOUND", "Column not found."),
 
   cardNotFound: () =>
-    createContentError(404, "CARD_NOT_FOUND", "Карточка не найдена."),
+    createContentError(404, "CARD_NOT_FOUND", "Card not found."),
 
   groupNotFound: () =>
-    createContentError(404, "GROUP_NOT_FOUND", "Группа не найдена."),
+    createContentError(404, "GROUP_NOT_FOUND", "Group not found."),
 
   actionItemNotFound: () =>
-    createContentError(404, "ACTION_ITEM_NOT_FOUND", "Action item не найден."),
+    createContentError(404, "ACTION_ITEM_NOT_FOUND", "Action item not found."),
 
   staleBoardRevision: (currentRevision: string) =>
     createContentError(
       409,
       "STALE_BOARD_REVISION",
-      "Состояние доски изменилось. Обновите данные и повторите действие.",
+      "The board changed. Refresh it and try again.",
       { currentRevision },
     ),
 
@@ -105,20 +105,20 @@ export const contentErrors = {
     createContentError(
       409,
       "BOARD_READ_ONLY",
-      "Доска находится в режиме только для чтения.",
+      "The board is read-only.",
     ),
 
   cardsDisabled: () =>
-    createContentError(409, "CARDS_DISABLED", "Работа с карточками отключена."),
+    createContentError(409, "CARDS_DISABLED", "Cards are disabled on this board."),
 
   votingDisabled: () =>
-    createContentError(409, "VOTING_DISABLED", "Голосование отключено."),
+    createContentError(409, "VOTING_DISABLED", "Voting is disabled on this board."),
 
   voteLimitConflict: (columnId: string, requestedLimit: number) =>
     createContentError(
       409,
       "VOTE_LIMIT_CONFLICT",
-      "Новый лимит меньше уже использованного количества голосов.",
+      "The new limit is below the number of votes already used.",
       { columnId, requestedLimit },
     ),
 
@@ -126,7 +126,7 @@ export const contentErrors = {
     createContentError(
       409,
       "VOTE_MOVE_CONFLICT",
-      "Перемещение превысит лимит голосов целевой колонки.",
+      "Moving this item would exceed the target column's vote limit.",
       { targetColumnId },
     ),
 
@@ -134,28 +134,28 @@ export const contentErrors = {
     createContentError(
       409,
       "CARD_GROUPED",
-      "Сначала разъедините группу, чтобы переместить эту карточку.",
+      "Ungroup the card before moving it on its own.",
     ),
 
   columnNotEmpty: () =>
     createContentError(
       409,
       "COLUMN_NOT_EMPTY",
-      "Колонка содержит карточки. Выберите явную стратегию удаления.",
+      "The column contains cards. Choose how to handle them.",
     ),
 
   lastColumnDeleteForbidden: () =>
     createContentError(
       409,
       "LAST_COLUMN_DELETE_FORBIDDEN",
-      "Нельзя удалить последнюю колонку доски.",
+      "The final board column cannot be deleted.",
     ),
 
   boardCardLimitReached: (limit: number) =>
     createContentError(
       422,
       "BOARD_CARD_LIMIT_REACHED",
-      "Достигнут лимит карточек на доске.",
+      "This board has reached its card limit.",
       { limit },
     ),
 
@@ -163,7 +163,7 @@ export const contentErrors = {
     createContentError(
       422,
       "BOARD_COLUMN_LIMIT_REACHED",
-      "Достигнут лимит колонок на доске.",
+      "This board has reached its column limit.",
       { limit: 10 },
     ),
 
@@ -171,7 +171,7 @@ export const contentErrors = {
     createContentError(
       422,
       "BOARD_ACTION_ITEM_LIMIT_REACHED",
-      "Достигнут лимит action items на доске.",
+      "This board has reached its action item limit.",
       { limit: 200 },
     ),
 
@@ -179,7 +179,7 @@ export const contentErrors = {
     createContentError(
       422,
       "COLUMN_VOTE_LIMIT_REACHED",
-      "В этой колонке не осталось доступных голосов.",
+      "No votes remain in this column.",
       { columnId, limit },
     ),
 
@@ -195,7 +195,7 @@ export const contentErrors = {
     return createContentError(
       422,
       "BOARD_EXPORT_LIMIT_EXCEEDED",
-      "Доска слишком велика для безопасного экспорта.",
+      "The board is too large to export safely.",
       details,
     );
   },

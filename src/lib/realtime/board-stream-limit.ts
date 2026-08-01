@@ -17,7 +17,7 @@ export class BoardStreamLimit {
       throw new ApiError(
         429,
         "RATE_LIMIT_EXCEEDED",
-        "Слишком много одновременных подключений к доске.",
+        "Too many concurrent connections to this board.",
         { retryAfterSeconds: STREAM_LIMIT_RETRY_AFTER_SECONDS },
       );
     }

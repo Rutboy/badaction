@@ -91,7 +91,7 @@ export const assertRateLimit = async (
     throw new ApiError(
       429,
       "RATE_LIMIT_EXCEEDED",
-      "Слишком много запросов. Попробуйте позже.",
+      "Too many requests. Try again later.",
       { retryAfterSeconds },
     );
   }

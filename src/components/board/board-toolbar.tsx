@@ -14,7 +14,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConnectionIndicator } from "@/components/board/connection-indicator";
 import type { BoardManagementSection } from "@/components/board/board-management-types";
 import { QuickColumnDialog } from "@/components/board/quick-column-dialog";
@@ -33,17 +33,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { readApiError } from "@/i18n/api-errors";
+import { useI18n } from "@/i18n/provider";
 import type { BoardSnapshot } from "@/lib/pagination/board-state";
-
-const readApiError = async (
-  response: Response,
-  fallback: string,
-): Promise<string> => {
-  const data = (await response.json().catch(() => null)) as {
-    error?: { message?: string };
-  } | null;
-  return data?.error?.message ?? fallback;
-};
 
 export const BoardToolbar = ({
   boardId,
@@ -62,6 +54,7 @@ export const BoardToolbar = ({
   onChanged: (options?: BoardRefreshOptions) => Promise<BoardRefreshResult>;
   onOpenManagement: (section: BoardManagementSection) => void;
 }) => {
+  const { locale, t } = useI18n();
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(board.title);
   const [savingTitle, setSavingTitle] = useState(false);
@@ -73,6 +66,8 @@ export const BoardToolbar = ({
   const quickColumnReturnFocusRef = useRef<HTMLElement | null>(null);
   const titleBeforeEdit = useRef(board.title);
   const isOwner = board.viewer.role === "OWNER";
+
+  useEffect(() => setTitleError(null), [locale]);
 
   const beginTitleEdit = () => {
     titleBeforeEdit.current = board.title;
@@ -92,7 +87,7 @@ export const BoardToolbar = ({
   const saveTitle = async () => {
     const normalizedTitle = title.trim();
     if (!normalizedTitle || normalizedTitle.length > 120) {
-      setTitleError("Введите от 1 до 120 символов.");
+      setTitleError(t("boardShell.toolbar.titleLength"));
       return;
     }
     if (normalizedTitle === board.title) {
@@ -111,7 +106,7 @@ export const BoardToolbar = ({
       });
       if (!response.ok) {
         setTitleError(
-          await readApiError(response, "Не удалось переименовать доску."),
+          await readApiError(response, t, "boardShell.toolbar.renameFailed"),
         );
         return;
       }
@@ -119,7 +114,7 @@ export const BoardToolbar = ({
       setEditingTitle(false);
       requestAnimationFrame(() => titleTriggerRef.current?.focus());
     } catch {
-      setTitleError("Не удалось переименовать доску. Проверьте соединение.");
+      setTitleError(t("boardShell.toolbar.renameNetworkFailed"));
     } finally {
       setSavingTitle(false);
     }
@@ -151,7 +146,7 @@ export const BoardToolbar = ({
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   maxLength={120}
-                  aria-label="Название доски"
+                  aria-label={t("boardShell.toolbar.titleLabel")}
                   aria-invalid={Boolean(titleError)}
                   aria-describedby={
                     titleError ? "board-title-error" : undefined
@@ -174,7 +169,7 @@ export const BoardToolbar = ({
                 type="submit"
                 variant="ghost"
                 size="icon"
-                aria-label="Сохранить название"
+                aria-label={t("boardShell.toolbar.saveTitle")}
                 disabled={savingTitle}
               >
                 <Check className="size-4" aria-hidden="true" />
@@ -183,7 +178,7 @@ export const BoardToolbar = ({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Отменить переименование"
+                aria-label={t("boardShell.toolbar.cancelRename")}
                 disabled={savingTitle}
                 onClick={cancelTitleEdit}
               >
@@ -205,7 +200,7 @@ export const BoardToolbar = ({
                   variant="ghost"
                   size="icon"
                   className="size-9 shrink-0 text-muted-foreground"
-                  aria-label="Переименовать доску"
+                  aria-label={t("boardShell.toolbar.rename")}
                   disabled={disabled}
                   onClick={beginTitleEdit}
                 >
@@ -226,7 +221,7 @@ export const BoardToolbar = ({
               variant="outline"
               className="hidden lg:inline-flex"
               disabled={disabled || !board.capabilities.canManageColumns}
-              aria-label="Добавить колонку"
+              aria-label={t("boardShell.toolbar.addColumn")}
               onClick={() => {
                 quickColumnReturnFocusRef.current =
                   quickColumnTriggerRef.current;
@@ -234,7 +229,7 @@ export const BoardToolbar = ({
               }}
             >
               <Plus className="size-4" aria-hidden="true" />
-              Колонка
+              {t("boardShell.toolbar.column")}
             </Button>
             <Button
               type="button"
@@ -243,8 +238,12 @@ export const BoardToolbar = ({
               onClick={() => onOpenManagement("access")}
             >
               <Share2 className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Пригласить</span>
-              <span className="sr-only sm:hidden">Пригласить</span>
+              <span className="hidden sm:inline">
+                {t("boardShell.toolbar.invite")}
+              </span>
+              <span className="sr-only sm:hidden">
+                {t("boardShell.toolbar.invite")}
+              </span>
             </Button>
           </>
         ) : null}
@@ -252,7 +251,9 @@ export const BoardToolbar = ({
         <button
           type="button"
           className="hidden max-w-36 items-center gap-2 truncate rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex"
-          aria-label={`Текущий участник: ${board.viewer.displayName}`}
+          aria-label={t("boardShell.toolbar.currentParticipant", {
+            name: board.viewer.displayName,
+          })}
           onClick={() => onOpenManagement("access")}
         >
           <UserRound className="size-4 shrink-0" aria-hidden="true" />
@@ -267,7 +268,7 @@ export const BoardToolbar = ({
               size="icon"
               variant="ghost"
               className="max-sm:size-11"
-              aria-label="Дополнительные действия"
+              aria-label={t("boardShell.toolbar.moreActions")}
             >
               <Ellipsis className="size-5" aria-hidden="true" />
             </Button>
@@ -288,34 +289,34 @@ export const BoardToolbar = ({
                   }}
                 >
                   <Plus className="size-4" aria-hidden="true" />
-                  Добавить колонку
+                  {t("boardShell.toolbar.addColumn")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onOpenManagement("general")}>
                   <Settings2 className="size-4" aria-hidden="true" />
-                  Настройки
+                  {t("boardShell.toolbar.settings")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onOpenManagement("columns")}>
                   <Columns3 className="size-4" aria-hidden="true" />
-                  Управление колонками
+                  {t("boardShell.toolbar.manageColumns")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onOpenManagement("access")}>
                   <ShieldCheck className="size-4" aria-hidden="true" />
-                  Управление доступом
+                  {t("boardShell.toolbar.manageAccess")}
                 </DropdownMenuItem>
               </>
             ) : (
               <DropdownMenuItem onSelect={() => onOpenManagement("access")}>
                 <UserRound className="size-4" aria-hidden="true" />
-                Участие
+                {t("boardShell.toolbar.participation")}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onSelect={() => onOpenManagement("export")}>
               <Download className="size-4" aria-hidden="true" />
-              Экспорт
+              {t("boardShell.toolbar.export")}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onOpenManagement("about")}>
               <CalendarClock className="size-4" aria-hidden="true" />
-              Срок хранения
+              {t("boardShell.toolbar.retention")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

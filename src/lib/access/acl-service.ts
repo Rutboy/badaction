@@ -44,16 +44,16 @@ type ParticipantInvitationOptions = InvitationOptions & {
   maxUses?: number;
 };
 
-const boardAccessNotFound = () => new ApiError(404, "BOARD_NOT_FOUND", "Доска не найдена");
+const boardAccessNotFound = () => new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
 const ownerRequired = () => new ApiError(
   403,
   "BOARD_OWNER_REQUIRED",
-  "Эта операция доступна только владельцу доски.",
+  "Only the board owner can perform this action.",
 );
 const invitationInvalid = () => new ApiError(
   404,
   "INVITATION_INVALID",
-  "Приглашение недействительно, использовано или просрочено.",
+  "The invitation is invalid, expired, or has already been used.",
 );
 
 const isTransactionConflict = (error: unknown) => {
@@ -165,7 +165,7 @@ const assertParticipantInvitationHistoryCapacity = async (
     throw new ApiError(
       422,
       "BOARD_INVITATION_HISTORY_LIMIT_REACHED",
-      `На доске исчерпан общий лимит в ${MAX_BOARD_PARTICIPANT_INVITATION_RECORDS} приглашений участников.`,
+      `This board has reached its history limit of ${MAX_BOARD_PARTICIPANT_INVITATION_RECORDS} participant invitations.`,
       { limit: MAX_BOARD_PARTICIPANT_INVITATION_RECORDS },
     );
   }
@@ -182,7 +182,7 @@ const assertParticipantMembershipHistoryCapacity = async (
     throw new ApiError(
       422,
       "BOARD_MEMBERSHIP_HISTORY_LIMIT_REACHED",
-      `На доске исчерпан общий лимит в ${MAX_BOARD_PARTICIPANT_MEMBERSHIP_RECORDS} записей доступа участников.`,
+      `This board has reached its history limit of ${MAX_BOARD_PARTICIPANT_MEMBERSHIP_RECORDS} participant memberships.`,
       { limit: MAX_BOARD_PARTICIPANT_MEMBERSHIP_RECORDS },
     );
   }
@@ -278,7 +278,7 @@ export const createOwnerMembershipInTransaction = async (
   {
     boardId,
     sessionId,
-    displayName = "Владелец",
+    displayName = "Owner",
   }: {
     boardId: string;
     sessionId: string;
@@ -493,7 +493,7 @@ export const createParticipantInvitation = async (
     throw new ApiError(
       422,
       "BOARD_INVITATION_LIMIT_REACHED",
-      `На доске может быть не более ${MAX_ACTIVE_INVITATIONS} активных приглашений.`,
+      `A board can have at most ${MAX_ACTIVE_INVITATIONS} active invitations.`,
     );
   }
 
@@ -522,7 +522,7 @@ export const createLegacyOwnerClaimInvitation = async (
     select: { id: true },
   });
   if (activeOwner) {
-    throw new ApiError(409, "BOARD_OWNER_ALREADY_EXISTS", "У доски уже есть владелец.");
+    throw new ApiError(409, "BOARD_OWNER_ALREADY_EXISTS", "This board already has an owner.");
   }
 
   await revokeBoardInvitationRows(tx, now, Prisma.sql`
@@ -560,7 +560,7 @@ type LockedInvitation = {
 export const redeemBoardInvitation = async (
   token: string,
   visitorPayload: string,
-  displayName = "Участник",
+  displayName = "Participant",
   {
     env = process.env,
     now = new Date(),
@@ -569,7 +569,7 @@ export const redeemBoardInvitation = async (
   const tokenHash = deriveInvitationTokenHash(token, env);
   const normalizedDisplayName = displayName.trim();
   if (normalizedDisplayName.length < 1 || normalizedDisplayName.length > 80) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Имя участника должно содержать от 1 до 80 символов.");
+    throw new ApiError(400, "VALIDATION_ERROR", "The participant name must contain between 1 and 80 characters.");
   }
 
   return withSerializableRetry(async (tx) => {
@@ -672,7 +672,7 @@ export const redeemBoardInvitation = async (
         throw new ApiError(
           422,
           "BOARD_PARTICIPANT_LIMIT_REACHED",
-          `На доске может быть не более ${MAX_ACTIVE_PARTICIPANTS} активных участников.`,
+          `A board can have at most ${MAX_ACTIVE_PARTICIPANTS} active participants.`,
         );
       }
     }
@@ -703,7 +703,7 @@ export const redeemBoardInvitation = async (
             boardId: invitation.boardId,
             sessionId: session.id,
             role: invitation.role,
-            displayName: invitation.role === "OWNER" ? "Владелец" : normalizedDisplayName,
+            displayName: invitation.role === "OWNER" ? "Owner" : normalizedDisplayName,
           },
           select: { id: true, role: true, displayName: true },
         });
@@ -714,7 +714,7 @@ export const redeemBoardInvitation = async (
           boardId: invitation.boardId,
           sessionId: session.id,
           role: invitation.role,
-          displayName: invitation.role === "OWNER" ? "Владелец" : normalizedDisplayName,
+          displayName: invitation.role === "OWNER" ? "Owner" : normalizedDisplayName,
         },
         select: { id: true, role: true, displayName: true },
       });
@@ -821,7 +821,7 @@ export const revokeBoardInvitation = async (
       AND invitation."revoked_at" IS NULL
   `);
   if (revokedCount === 0) {
-    throw new ApiError(404, "INVITATION_NOT_FOUND", "Приглашение не найдено.");
+    throw new ApiError(404, "INVITATION_NOT_FOUND", "Invitation not found.");
   }
 });
 
@@ -863,7 +863,7 @@ export const updateCurrentMembershipDisplayName = async (
   });
   const normalizedDisplayName = displayName.trim();
   if (normalizedDisplayName.length < 1 || normalizedDisplayName.length > 80) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Имя должно содержать от 1 до 80 символов.");
+    throw new ApiError(400, "VALIDATION_ERROR", "The name must contain between 1 and 80 characters.");
   }
 
   if (normalizedDisplayName === membership.displayName) {
@@ -908,7 +908,7 @@ export const revokeBoardParticipant = async (
       AND membership."revoked_at" IS NULL
   `);
   if (revokedCount === 0) {
-    throw new ApiError(404, "MEMBERSHIP_NOT_FOUND", "Участник не найден.");
+    throw new ApiError(404, "MEMBERSHIP_NOT_FOUND", "Participant not found.");
   }
 });
 
@@ -925,7 +925,7 @@ export const leaveBoard = async (
     now,
   });
   if (membership.role === "OWNER") {
-    throw new ApiError(409, "OWNER_CANNOT_LEAVE", "Владелец может только удалить доску.");
+    throw new ApiError(409, "OWNER_CANNOT_LEAVE", "The board owner cannot leave the board.");
   }
 
   await revokeBoardMembershipRows(tx, now, Prisma.sql`

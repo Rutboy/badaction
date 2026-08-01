@@ -12,7 +12,7 @@ export const assertSameOriginMutation = (
 ) => {
   const fetchSite = request.headers.get("sec-fetch-site")?.toLowerCase();
   if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
-    throw new ApiError(403, "FORBIDDEN_ORIGIN", "Запрос с другого сайта запрещён");
+    throw new ApiError(403, "FORBIDDEN_ORIGIN", "Cross-site requests are not allowed.");
   }
 
   const canonicalOrigin = getCanonicalAppOrigin(request.url, env);
@@ -22,7 +22,7 @@ export const assertSameOriginMutation = (
   }
 
   if (origin !== canonicalOrigin) {
-    throw new ApiError(403, "FORBIDDEN_ORIGIN", "Запрос с другого сайта запрещён");
+    throw new ApiError(403, "FORBIDDEN_ORIGIN", "Cross-site requests are not allowed.");
   }
 };
 
@@ -33,11 +33,11 @@ const assertContentLengthWithinLimit = (request: Request, maxBytes: number) => {
   }
 
   if (!/^\d+$/.test(rawContentLength.trim())) {
-    throw new ApiError(400, "INVALID_CONTENT_LENGTH", "Некорректный Content-Length");
+    throw new ApiError(400, "INVALID_CONTENT_LENGTH", "Invalid Content-Length.");
   }
 
   if (Number(rawContentLength) > maxBytes) {
-    throw new ApiError(413, "PAYLOAD_TOO_LARGE", "Тело запроса слишком большое");
+    throw new ApiError(413, "PAYLOAD_TOO_LARGE", "The request body is too large.");
   }
 
   return Number(rawContentLength);
@@ -49,7 +49,7 @@ export const assertNoRequestBody = async (
 ): Promise<void> => {
   const declaredContentLength = assertContentLengthWithinLimit(request, maxBytes);
   if (declaredContentLength !== undefined && declaredContentLength > 0) {
-    throw new ApiError(400, "UNEXPECTED_REQUEST_BODY", "Этот запрос не должен содержать тело");
+    throw new ApiError(400, "UNEXPECTED_REQUEST_BODY", "This request must not contain a body.");
   }
 
   const reader = request.body?.getReader();
@@ -68,7 +68,7 @@ export const assertNoRequestBody = async (
       receivedBytes += value.byteLength;
       if (receivedBytes > maxBytes) {
         await reader.cancel();
-        throw new ApiError(413, "PAYLOAD_TOO_LARGE", "Тело запроса слишком большое");
+        throw new ApiError(413, "PAYLOAD_TOO_LARGE", "The request body is too large.");
       }
     }
   } finally {
@@ -76,7 +76,7 @@ export const assertNoRequestBody = async (
   }
 
   if (receivedBytes > 0) {
-    throw new ApiError(400, "UNEXPECTED_REQUEST_BODY", "Этот запрос не должен содержать тело");
+    throw new ApiError(400, "UNEXPECTED_REQUEST_BODY", "This request must not contain a body.");
   }
 };
 
@@ -85,14 +85,14 @@ export const readJsonBody = async (
   maxBytes: number = JSON_BODY_LIMIT_BYTES,
 ): Promise<unknown> => {
   if (!isJsonContentType(request.headers.get("content-type"))) {
-    throw new ApiError(415, "UNSUPPORTED_MEDIA_TYPE", "Ожидается Content-Type application/json");
+    throw new ApiError(415, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json.");
   }
 
   assertContentLengthWithinLimit(request, maxBytes);
 
   const reader = request.body?.getReader();
   if (!reader) {
-    throw new ApiError(400, "INVALID_JSON", "Тело запроса должно содержать корректный JSON");
+    throw new ApiError(400, "INVALID_JSON", "The request body must contain valid JSON.");
   }
 
   const chunks: Uint8Array[] = [];
@@ -108,7 +108,7 @@ export const readJsonBody = async (
       receivedBytes += value.byteLength;
       if (receivedBytes > maxBytes) {
         await reader.cancel();
-        throw new ApiError(413, "PAYLOAD_TOO_LARGE", "Тело запроса слишком большое");
+        throw new ApiError(413, "PAYLOAD_TOO_LARGE", "The request body is too large.");
       }
 
       chunks.push(value);
@@ -127,6 +127,6 @@ export const readJsonBody = async (
   try {
     return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
   } catch {
-    throw new ApiError(400, "INVALID_JSON", "Тело запроса должно содержать корректный JSON");
+    throw new ApiError(400, "INVALID_JSON", "The request body must contain valid JSON.");
   }
 };

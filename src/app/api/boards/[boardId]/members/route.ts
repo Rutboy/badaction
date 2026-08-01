@@ -9,7 +9,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ boar
   try {
     const parsed = uuidParamSchema.safeParse((await params).boardId);
     if (!parsed.success) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Некорректный boardId");
+      throw new ApiError(400, "VALIDATION_ERROR", "Invalid boardId.");
     }
 
     const visitorPayload = await getOrSetVisitorToken();

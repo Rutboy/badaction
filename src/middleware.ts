@@ -1,7 +1,10 @@
 import type { NextRequest } from "next/server.js";
 import { NextResponse } from "next/server.js";
 import { toErrorResponse } from "@/lib/errors/api-error";
-import { createBoardPageMiddleware } from "@/lib/http/board-page-middleware";
+import {
+  createBoardPageMiddleware,
+  localizeBoardPageErrorResponse,
+} from "@/lib/http/board-page-middleware";
 import { assertBoardPreAuthRateLimit } from "@/lib/ratelimit/board-pre-auth-rate-limit";
 
 const handleBoardPageRequest = createBoardPageMiddleware();
@@ -10,7 +13,10 @@ export async function middleware(request: NextRequest) {
   try {
     await assertBoardPreAuthRateLimit({ headers: request.headers });
   } catch (error) {
-    return toErrorResponse(error);
+    const response = toErrorResponse(error);
+    return request.nextUrl.pathname.startsWith("/boards/")
+      ? localizeBoardPageErrorResponse(request, response)
+      : response;
   }
 
   if (request.nextUrl.pathname.startsWith("/api/boards")) {

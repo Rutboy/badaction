@@ -17,23 +17,12 @@ import type {
   BoardRefreshOptions,
   BoardRefreshResult,
 } from "@/components/use-board-realtime";
+import { readApiError } from "@/i18n/api-errors";
+import { useI18n } from "@/i18n/provider";
 import type { BoardSnapshot } from "@/lib/pagination/board-state";
 
-type ApiErrorPayload = {
-  error?: {
-    message?: string;
-  };
+type ColumnMutationPayload = {
   revision?: unknown;
-};
-
-const readApiError = async (
-  response: Response,
-  fallback: string,
-): Promise<string> => {
-  const data = (await response
-    .json()
-    .catch(() => null)) as ApiErrorPayload | null;
-  return data?.error?.message ?? fallback;
 };
 
 export const QuickColumnDialog = ({
@@ -51,6 +40,7 @@ export const QuickColumnDialog = ({
   onChanged: (options?: BoardRefreshOptions) => Promise<BoardRefreshResult>;
   returnFocusRef: RefObject<HTMLElement | null>;
 }) => {
+  const { locale, t } = useI18n();
   const [title, setTitle] = useState("");
   const [voteLimit, setVoteLimit] = useState("3");
   const [pending, setPending] = useState(false);
@@ -66,6 +56,8 @@ export const QuickColumnDialog = ({
     setCreatedAwaitingRefresh(false);
     setError(null);
   }, [open]);
+
+  useEffect(() => setError(null), [locale]);
 
   const normalizedTitle = title.trim();
   const normalizedVoteLimitInput = voteLimit.trim();
@@ -104,7 +96,8 @@ export const QuickColumnDialog = ({
       if (!response.ok) {
         const message = await readApiError(
           response,
-          "Не удалось создать колонку.",
+          t,
+          "content.column.createFailed",
         );
         if (response.status === 409) {
           await onChanged().catch(() => undefined);
@@ -116,7 +109,7 @@ export const QuickColumnDialog = ({
       columnCreated = true;
       const payload = (await response
         .json()
-        .catch(() => null)) as ApiErrorPayload | null;
+        .catch(() => null)) as ColumnMutationPayload | null;
       const mutationRevision = payload?.revision;
       if (
         typeof mutationRevision !== "string" ||
@@ -131,21 +124,17 @@ export const QuickColumnDialog = ({
         BigInt(refreshResult.revision) < BigInt(mutationRevision)
       ) {
         setCreatedAwaitingRefresh(true);
-        setError(
-          "Колонка создана, но обновить доску не удалось. Проверьте соединение.",
-        );
+        setError(t("content.column.createdRefreshFailed"));
         return;
       }
-      toast.success("Колонка добавлена");
+      toast.success(t("content.column.added"));
       onOpenChange(false);
     } catch {
       if (columnCreated) {
         setCreatedAwaitingRefresh(true);
-        setError(
-          "Колонка создана, но обновить доску не удалось. Проверьте соединение.",
-        );
+        setError(t("content.column.createdRefreshFailed"));
       } else {
-        setError("Не удалось создать колонку. Проверьте соединение.");
+        setError(t("content.column.createNetworkFailed"));
       }
     } finally {
       setPending(false);
@@ -169,9 +158,9 @@ export const QuickColumnDialog = ({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Добавить колонку</DialogTitle>
+          <DialogTitle>{t("content.column.addTitle")}</DialogTitle>
           <DialogDescription>
-            Новая колонка обратной связи появится перед «Решениями».
+            {t("content.column.addDescription")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -184,7 +173,7 @@ export const QuickColumnDialog = ({
         >
           <div className="space-y-2">
             <label htmlFor="quick-column-title" className="text-sm font-medium">
-              Название
+              {t("content.common.title")}
             </label>
             <Input
               id="quick-column-title"
@@ -210,7 +199,7 @@ export const QuickColumnDialog = ({
               htmlFor="quick-column-vote-limit"
               className="text-sm font-medium"
             >
-              Лимит голосов
+              {t("content.column.voteLimit")}
             </label>
             <Input
               id="quick-column-vote-limit"
@@ -240,7 +229,7 @@ export const QuickColumnDialog = ({
               id="quick-column-vote-limit-hint"
               className="text-xs text-muted-foreground"
             >
-              От 0 до 20. Ноль отключает голосование в этой колонке.
+              {t("content.column.voteLimitHint")}
             </p>
           </div>
           {error ? (
@@ -255,7 +244,9 @@ export const QuickColumnDialog = ({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              {createdAwaitingRefresh ? "Закрыть" : "Отмена"}
+              {createdAwaitingRefresh
+                ? t("content.common.close")
+                : t("content.common.cancel")}
             </Button>
             <Button
               type="submit"
@@ -266,7 +257,7 @@ export const QuickColumnDialog = ({
               ) : (
                 <Plus className="size-4" aria-hidden="true" />
               )}
-              {pending ? "Добавляем..." : "Добавить колонку"}
+              {pending ? t("content.common.adding") : t("content.column.add")}
             </Button>
           </DialogFooter>
         </form>

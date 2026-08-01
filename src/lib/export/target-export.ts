@@ -1,3 +1,11 @@
+import { isLocale, type Locale } from "../../i18n/locales.ts";
+import {
+  createTranslator,
+  formatDate,
+  formatNumber,
+  type Translate,
+} from "../../i18n/translate.ts";
+
 export type ExportCard = {
   kind: "CARD";
   id: string;
@@ -330,83 +338,118 @@ export const escapeTargetMarkdown = (value: string): string =>
     .map(escapeMarkdownLine)
     .join("<br>");
 
-const renderMarkdownCard = (card: ExportCard, index: number): string =>
+const renderMarkdownCard = (
+  card: ExportCard,
+  index: number,
+  locale: Locale,
+  t: Translate,
+): string =>
   [
     `${index}. ${escapeTargetMarkdown(card.text)}`,
-    `   - Автор: ${card.author === null ? "—" : escapeTargetMarkdown(card.author)}`,
-    `   - Голоса: ${card.voteCount}`,
+    `   - ${t("export.author")}: ${
+      card.author === null ? "—" : escapeTargetMarkdown(card.author)
+    }`,
+    `   - ${t("export.votes")}: ${formatNumber(locale, card.voteCount)}`,
   ].join("\n");
 
-const renderMarkdownGroup = (group: ExportGroup, index: number): string => {
+const renderMarkdownGroup = (
+  group: ExportGroup,
+  index: number,
+  locale: Locale,
+  t: Translate,
+): string => {
   const lines = [
-    `${index}. Группа: ${
-      group.title === null ? "Без названия" : escapeTargetMarkdown(group.title)
+    `${index}. ${t("export.group")}: ${
+      group.title === null ? t("common.unnamed") : escapeTargetMarkdown(group.title)
     }`,
-    `   - Голоса: ${group.voteCount}`,
+    `   - ${t("export.votes")}: ${formatNumber(locale, group.voteCount)}`,
   ];
 
   group.cards.forEach((card, cardIndex) => {
-    const primarySuffix = card.id === group.primaryCardId ? " — основная" : "";
+    const primarySuffix = card.id === group.primaryCardId
+      ? ` — ${t("export.primary")}`
+      : "";
     lines.push(
       `   ${cardIndex + 1}. ${escapeTargetMarkdown(card.text)}${primarySuffix}`,
-      `      - Автор: ${
+      `      - ${t("export.author")}: ${
         card.author === null ? "—" : escapeTargetMarkdown(card.author)
       }`,
-      `      - Голоса: ${card.voteCount}`,
+      `      - ${t("export.votes")}: ${formatNumber(locale, card.voteCount)}`,
     );
   });
 
   return lines.join("\n");
 };
 
-export const serializeTargetMarkdownExport = (source: BoardExportV2): string => {
+export const serializeTargetMarkdownExport = (
+  source: BoardExportV2,
+  locale: Locale = "en",
+): string => {
   const data = projectTargetExport(source);
+  const resolvedLocale = isLocale(locale) ? locale : "en";
+  const t = createTranslator(resolvedLocale);
+  const dateOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  } as const satisfies Intl.DateTimeFormatOptions;
   const sections = [
     `# ${escapeTargetMarkdown(data.board.title)}`,
     [
-      `- Создана: ${data.board.createdAt}`,
-      `- Истекает: ${data.board.expiresAt}`,
-      `- Карточки: ${data.board.settings.cardsEnabled ? "включены" : "выключены"}`,
-      `- Голосование: ${
-        data.board.settings.votingEnabled ? "включено" : "выключено"
+      `- ${t("export.createdAt")}: ${formatDate(resolvedLocale, data.board.createdAt, dateOptions)}`,
+      `- ${t("export.expiresAt")}: ${formatDate(resolvedLocale, data.board.expiresAt, dateOptions)}`,
+      `- ${t("export.cards")}: ${
+        t(data.board.settings.cardsEnabled ? "common.yes" : "common.no")
       }`,
-      `- Только чтение: ${data.board.settings.readOnly ? "да" : "нет"}`,
+      `- ${t("export.voting")}: ${
+        t(data.board.settings.votingEnabled ? "common.yes" : "common.no")
+      }`,
+      `- ${t("export.readOnly")}: ${
+        t(data.board.settings.readOnly ? "common.yes" : "common.no")
+      }`,
     ].join("\n"),
   ];
 
   for (const column of data.columns) {
     const content =
       column.items.length === 0
-        ? "_Нет карточек._"
+        ? `_${t("export.noCards")}_`
         : column.items
             .map((item, index) =>
               item.kind === "CARD"
-                ? renderMarkdownCard(item, index + 1)
-                : renderMarkdownGroup(item, index + 1),
+                ? renderMarkdownCard(item, index + 1, resolvedLocale, t)
+                : renderMarkdownGroup(item, index + 1, resolvedLocale, t),
             )
             .join("\n");
 
     sections.push(
-      `## ${escapeTargetMarkdown(column.title)} (лимит голосов: ${column.voteLimit})\n\n${content}`,
+      `## ${t("export.columnHeading", {
+        title: escapeTargetMarkdown(column.title),
+        count: formatNumber(resolvedLocale, column.voteLimit),
+      })}\n\n${content}`,
     );
   }
 
   const actionContent =
     data.actionItems.length === 0
-      ? "_Нет action items._"
+      ? `_${t("export.noActionItems")}_`
       : data.actionItems
           .map(
             (actionItem) =>
               `- [${actionItem.completed ? "x" : " "}] ${escapeTargetMarkdown(
                 actionItem.text,
-              )} — Ответственный: ${
+              )} — ${t("export.assignee")}: ${
                 actionItem.assignee === null
                   ? "—"
                   : escapeTargetMarkdown(actionItem.assignee)
               }`,
           )
           .join("\n");
-  sections.push(`## Action items\n\n${actionContent}`);
+  sections.push(`## ${t("export.actionItems")}\n\n${actionContent}`);
 
   return `${sections.join("\n\n")}\n`;
 };

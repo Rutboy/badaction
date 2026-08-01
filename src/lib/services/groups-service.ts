@@ -61,9 +61,9 @@ const GROUP_SELECT = {
 type GroupCardRow = Prisma.CardGetPayload<{ select: typeof GROUP_CARD_SELECT }>;
 type GroupRow = Prisma.CardGroupGetPayload<{ select: typeof GROUP_SELECT }>;
 
-const groupNotFound = () => new ApiError(404, "GROUP_NOT_FOUND", "Группа не найдена.");
-const cardNotFound = () => new ApiError(404, "CARD_NOT_FOUND", "Карточка не найдена.");
-const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Колонка не найдена.");
+const groupNotFound = () => new ApiError(404, "GROUP_NOT_FOUND", "Group not found.");
+const cardNotFound = () => new ApiError(404, "CARD_NOT_FOUND", "Card not found.");
+const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Column not found.");
 
 const requireItemPlacementResources = (
   items: readonly { id: string; kind: "CARD" | "GROUP" }[],
@@ -217,7 +217,7 @@ export const createCardGroup = async (
     throw cardNotFound();
   }
   if (cards.some((card) => card.groupId !== null)) {
-    throw new ApiError(409, "CARD_GROUPED", "Одна или несколько карточек уже входят в группу.");
+    throw new ApiError(409, "CARD_GROUPED", "One or more cards already belong to a group.");
   }
   cards.sort((left, right) => left.position - right.position
     || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));

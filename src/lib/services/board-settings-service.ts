@@ -4,6 +4,8 @@ import { getOrCreateSessionInTransaction } from "../access/session-service.ts";
 import { getBoardRetentionDays } from "../config/limits.ts";
 import { MAX_ACTIVE_OWNED_BOARDS_PER_SESSION } from "../constants/access.ts";
 import { ApiError } from "../errors/api-error-base.ts";
+import { getDefaultBoardColumns } from "../../i18n/default-columns.ts";
+import type { Locale } from "../../i18n/locales.ts";
 import {
   incrementBoardRevision,
   lockBoardForMutation,
@@ -12,10 +14,9 @@ import {
   withContentTransaction,
 } from "./content-service-helpers.ts";
 
-export const DEFAULT_BOARD_COLUMNS = [
-  { title: "Уже хорошо", position: 1024, voteLimit: 3 },
-  { title: "Следует улучшить", position: 2048, voteLimit: 3 },
-] as const;
+export const DEFAULT_BOARD_COLUMNS = getDefaultBoardColumns();
+
+export { getDefaultBoardColumns };
 
 type BoardPatch = {
   title?: string;
@@ -36,6 +37,7 @@ const normalizeBoardTitle = (title: string): string => {
 export const createTargetBoard = async (
   visitorPayload: string,
   title: string,
+  locale: Locale = "en",
 ) => {
   const normalizedTitle = normalizeBoardTitle(title);
   const createdAt = new Date();
@@ -57,7 +59,7 @@ export const createTargetBoard = async (
       throw new ApiError(
         401,
         "ANONYMOUS_SESSION_INACTIVE",
-        "Анонимная сессия недействительна. Обновите страницу и повторите запрос.",
+        "Your anonymous session is no longer active. Refresh and try again.",
       );
     }
 
@@ -73,7 +75,7 @@ export const createTargetBoard = async (
       throw new ApiError(
         422,
         "SESSION_BOARD_LIMIT_REACHED",
-        `Одна анонимная сессия может владеть не более чем ${MAX_ACTIVE_OWNED_BOARDS_PER_SESSION} активными досками.`,
+        `An anonymous session can own at most ${MAX_ACTIVE_OWNED_BOARDS_PER_SESSION} active boards.`,
         { limit: MAX_ACTIVE_OWNED_BOARDS_PER_SESSION },
       );
     }
@@ -101,7 +103,7 @@ export const createTargetBoard = async (
       sessionId: session.id,
     });
     await tx.boardColumn.createMany({
-      data: DEFAULT_BOARD_COLUMNS.map((column) => ({
+      data: getDefaultBoardColumns(locale).map((column) => ({
         boardId: board.id,
         ...column,
       })),

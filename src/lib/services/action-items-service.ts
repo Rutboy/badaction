@@ -36,10 +36,10 @@ export type CreateActionItemPayload =
 const actionItemNotFound = () => new ApiError(
   404,
   "ACTION_ITEM_NOT_FOUND",
-  "Action item не найден.",
+  "Action item not found.",
 );
 
-const cardNotFound = () => new ApiError(404, "CARD_NOT_FOUND", "Карточка не найдена.");
+const cardNotFound = () => new ApiError(404, "CARD_NOT_FOUND", "Card not found.");
 
 const requireActionPlacementResources = (
   items: readonly ActionItemRow[],
@@ -149,7 +149,7 @@ export const createActionItem = async (
     throw new ApiError(
       422,
       "BOARD_ACTION_ITEM_LIMIT_REACHED",
-      `На доске может быть не более ${MAX_BOARD_ACTION_ITEMS} action items.`,
+      `A board can contain at most ${MAX_BOARD_ACTION_ITEMS} action items.`,
       { limit: MAX_BOARD_ACTION_ITEMS },
     );
   }

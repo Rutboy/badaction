@@ -3,6 +3,7 @@ import {
   noStoreJson,
   prepareJsonContentMutation,
 } from "@/lib/http/content-route";
+import { getRequestLocale } from "@/i18n/server";
 import { createTargetBoard } from "@/lib/services/target-content-service";
 import { createTargetBoardSchema } from "@/lib/validators/target-content";
 
@@ -13,7 +14,12 @@ export async function POST(request: Request) {
       mutation: "board.create",
       schema: createTargetBoardSchema,
     });
-    const board = await createTargetBoard(visitorPayload, payload.title);
+    const locale = await getRequestLocale();
+    const board = await createTargetBoard(
+      visitorPayload,
+      payload.title,
+      locale,
+    );
 
     return noStoreJson(
       {

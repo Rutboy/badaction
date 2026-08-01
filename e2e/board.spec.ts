@@ -210,7 +210,7 @@ const expectDefaultBoardFits = async (page: Page) => {
 
   const canvasBox = await canvas.boundingBox();
   expect(canvasBox, "Board canvas must have a layout box").not.toBeNull();
-  for (const title of ["Уже хорошо", "Следует улучшить", "Решения"]) {
+  for (const title of ["Что прошло хорошо", "Что можно улучшить", "Решения"]) {
     const region = column(page, title);
     await expect(region).toBeVisible();
     const regionBox = await region.boundingBox();
@@ -247,8 +247,11 @@ const expectBoardCanvasUsesHorizontalScroll = async (page: Page) => {
   expect(settledLeftBoundary).toBeLessThanOrEqual(1);
   const viewport = page.viewportSize();
   const canvasBox = await canvas.boundingBox();
-  const firstColumnBox = await column(page, "Уже хорошо").boundingBox();
-  const secondColumnBox = await column(page, "Следует улучшить").boundingBox();
+  const firstColumnBox = await column(page, "Что прошло хорошо").boundingBox();
+  const secondColumnBox = await column(
+    page,
+    "Что можно улучшить",
+  ).boundingBox();
   expect(viewport, "Viewport must be configured").not.toBeNull();
   expect(canvasBox, "Board canvas must have a layout box").not.toBeNull();
   expect(firstColumnBox, "First column must have a layout box").not.toBeNull();
@@ -637,9 +640,9 @@ test("board modes, vote reset, action items and exports remain available through
   try {
     await page.setViewportSize({ width: 1440, height: 1000 });
     boardId = await createBoard(page, boardTitle);
-    await createCard(page, "Уже хорошо", sourceCardText, "Владелец");
+    await createCard(page, "Что прошло хорошо", sourceCardText, "Владелец");
 
-    const sourceCard = card(page, "Уже хорошо", sourceCardText);
+    const sourceCard = card(page, "Что прошло хорошо", sourceCardText);
     const voteButton = sourceCard.getByRole("button", {
       name: `Проголосовать за карточку «${sourceCardText}»`,
     });
@@ -676,8 +679,8 @@ test("board modes, vote reset, action items and exports remain available through
         .filter({ hasText: "Сбор карточек и голосование выключены" }),
     ).toBeVisible();
     await expect(
-      column(page, "Уже хорошо").getByRole("button", {
-        name: "Добавить карточку в колонку «Уже хорошо»",
+      column(page, "Что прошло хорошо").getByRole("button", {
+        name: "Добавить карточку в колонку «Что прошло хорошо»",
       }),
     ).toHaveCount(0);
     await expect(
@@ -1010,14 +1013,17 @@ test("product release flow covers access, realtime, content and accessible DnD",
         }),
       );
       await expectTouchTarget(
-        column(participantPage, "Уже хорошо").getByRole("button", {
-          name: "Добавить карточку в колонку «Уже хорошо»",
+        column(participantPage, "Что прошло хорошо").getByRole("button", {
+          name: "Добавить карточку в колонку «Что прошло хорошо»",
         }),
       );
     }
 
-    await column(participantPage, "Следует улучшить").scrollIntoViewIfNeeded();
-    await expect(column(participantPage, "Следует улучшить")).toBeVisible();
+    await column(
+      participantPage,
+      "Что можно улучшить",
+    ).scrollIntoViewIfNeeded();
+    await expect(column(participantPage, "Что можно улучшить")).toBeVisible();
     const mobileActions = participantPage.getByRole("region", {
       name: "Решения",
     });
@@ -1028,17 +1034,20 @@ test("product release flow covers access, realtime, content and accessible DnD",
       .getByTestId("board-canvas")
       .evaluate((element) => element.scrollTo({ left: 0 }));
 
-    const keyboardComposerTrigger = column(ownerPage, "Уже хорошо").getByRole(
-      "button",
-      {
-        name: "Добавить карточку в колонку «Уже хорошо»",
-      },
-    );
+    const keyboardComposerTrigger = column(
+      ownerPage,
+      "Что прошло хорошо",
+    ).getByRole("button", {
+      name: "Добавить карточку в колонку «Что прошло хорошо»",
+    });
     await keyboardComposerTrigger.focus();
     await ownerPage.keyboard.press("Enter");
-    const keyboardComposer = column(ownerPage, "Уже хорошо").getByRole("form", {
-      name: "Новая карточка в колонке «Уже хорошо»",
-    });
+    const keyboardComposer = column(ownerPage, "Что прошло хорошо").getByRole(
+      "form",
+      {
+        name: "Новая карточка в колонке «Что прошло хорошо»",
+      },
+    );
     const keyboardComposerTextarea =
       keyboardComposer.getByLabel("Текст карточки");
     await expect(keyboardComposerTextarea).toBeFocused();
@@ -1051,7 +1060,7 @@ test("product release flow covers access, realtime, content and accessible DnD",
     await keyboardComposerTextarea.fill("Создано с клавиатуры");
     await ownerPage.keyboard.press("Control+Enter");
     await expect(
-      card(ownerPage, "Уже хорошо", "Создано с клавиатуры"),
+      card(ownerPage, "Что прошло хорошо", "Создано с клавиатуры"),
     ).toBeVisible();
     await expect(keyboardComposerTextarea).toBeFocused();
     await ownerPage.keyboard.press("Escape");
@@ -1060,23 +1069,27 @@ test("product release flow covers access, realtime, content and accessible DnD",
 
     await createCard(
       participantPage,
-      "Уже хорошо",
+      "Что прошло хорошо",
       "Первый сигнал",
       "Участник E2E",
     );
-    await createCard(participantPage, "Уже хорошо", "Второй сигнал");
-    await expect(card(ownerPage, "Уже хорошо", "Первый сигнал")).toBeVisible();
-    await expect(card(ownerPage, "Уже хорошо", "Второй сигнал")).toBeVisible();
+    await createCard(participantPage, "Что прошло хорошо", "Второй сигнал");
+    await expect(
+      card(ownerPage, "Что прошло хорошо", "Первый сигнал"),
+    ).toBeVisible();
+    await expect(
+      card(ownerPage, "Что прошло хорошо", "Второй сигнал"),
+    ).toBeVisible();
 
     await createCard(
       ownerPage,
-      "Следует улучшить",
+      "Что можно улучшить",
       "Карточка владельца",
       "Владелец",
     );
     const participantOwnerCard = card(
       participantPage,
-      "Следует улучшить",
+      "Что можно улучшить",
       "Карточка владельца",
     );
     await expect(participantOwnerCard).toBeVisible();
@@ -1086,7 +1099,11 @@ test("product release flow covers access, realtime, content and accessible DnD",
       }),
     ).toHaveCount(0);
 
-    const ownerCard = card(ownerPage, "Следует улучшить", "Карточка владельца");
+    const ownerCard = card(
+      ownerPage,
+      "Что можно улучшить",
+      "Карточка владельца",
+    );
     await ownerCard
       .getByRole("button", { name: "Действия с карточкой" })
       .click();
@@ -1101,7 +1118,7 @@ test("product release flow covers access, realtime, content and accessible DnD",
     await expect(
       card(
         participantPage,
-        "Следует улучшить",
+        "Что можно улучшить",
         "Карточка владельца — обновлена",
       ),
     ).toBeVisible();
@@ -1110,26 +1127,32 @@ test("product release flow covers access, realtime, content and accessible DnD",
       ownerPage,
       card(
         ownerPage,
-        "Следует улучшить",
+        "Что можно улучшить",
         "Карточка владельца — обновлена",
       ).getByRole("button", {
         name: "Переместить карточку «Карточка владельца — обновлена»",
       }),
-      column(ownerPage, "Уже хорошо").getByRole("list", { name: "Уже хорошо" }),
+      column(ownerPage, "Что прошло хорошо").getByRole("list", {
+        name: "Что прошло хорошо",
+      }),
     );
     await expect(
-      card(participantPage, "Уже хорошо", "Карточка владельца — обновлена"),
+      card(
+        participantPage,
+        "Что прошло хорошо",
+        "Карточка владельца — обновлена",
+      ),
     ).toBeVisible();
 
     await createCard(
       ownerPage,
-      "Следует улучшить",
+      "Что можно улучшить",
       "Цель touch-перемещения",
       "Владелец",
     );
     const participantTouchTarget = card(
       participantPage,
-      "Следует улучшить",
+      "Что можно улучшить",
       "Цель touch-перемещения",
     );
     await expect(participantTouchTarget).toBeVisible();
@@ -1139,7 +1162,11 @@ test("product release flow covers access, realtime, content and accessible DnD",
       }),
     ).toBeEnabled();
 
-    const firstCard = card(participantPage, "Уже хорошо", "Первый сигнал");
+    const firstCard = card(
+      participantPage,
+      "Что прошло хорошо",
+      "Первый сигнал",
+    );
     await firstCard
       .getByRole("button", { name: "Действия с карточкой" })
       .click();
@@ -1152,20 +1179,20 @@ test("product release flow covers access, realtime, content and accessible DnD",
       .fill("Первый сигнал — уточнён");
     await editDialog.getByRole("button", { name: "Сохранить" }).click();
     await expect(
-      card(ownerPage, "Уже хорошо", "Первый сигнал — уточнён"),
+      card(ownerPage, "Что прошло хорошо", "Первый сигнал — уточнён"),
     ).toBeVisible();
 
     const touchSource = card(
       participantPage,
-      "Уже хорошо",
+      "Что прошло хорошо",
       "Первый сигнал — уточнён",
     ).getByRole("button", {
       name: "Переместить карточку «Первый сигнал — уточнён»",
     });
     await participantPage.setViewportSize({ width: 1024, height: 768 });
     await expectNoPageOverflow(participantPage);
-    await expect(column(participantPage, "Уже хорошо")).toBeVisible();
-    await expect(column(participantPage, "Следует улучшить")).toBeVisible();
+    await expect(column(participantPage, "Что прошло хорошо")).toBeVisible();
+    await expect(column(participantPage, "Что можно улучшить")).toBeVisible();
     await expectTouchTarget(touchSource);
     const touchMoveResponse = participantPage.waitForResponse(
       (response) =>
@@ -1184,31 +1211,34 @@ test("product release flow covers access, realtime, content and accessible DnD",
     );
     expect((await touchMoveResponse).ok()).toBe(true);
     await expect(
-      card(participantPage, "Следует улучшить", "Первый сигнал — уточнён"),
+      card(participantPage, "Что можно улучшить", "Первый сигнал — уточнён"),
     ).toBeVisible();
     await expect(
-      card(ownerPage, "Следует улучшить", "Первый сигнал — уточнён"),
+      card(ownerPage, "Что можно улучшить", "Первый сигнал — уточнён"),
     ).toBeVisible();
     await participantPage.setViewportSize({ width: 1440, height: 1000 });
     await participantPage.reload();
     await waitForBoard(participantPage, boardTitle);
     await expect(
-      card(participantPage, "Следует улучшить", "Первый сигнал — уточнён"),
+      card(participantPage, "Что можно улучшить", "Первый сигнал — уточнён"),
     ).toBeVisible();
 
     for (const text of ["Третий сигнал", "Четвёртый сигнал", "Пятый сигнал"]) {
-      await createCard(participantPage, "Уже хорошо", text);
+      await createCard(participantPage, "Что прошло хорошо", text);
     }
 
-    const beforeKeyboardMove = await column(participantPage, "Уже хорошо")
-      .getByRole("list", { name: "Уже хорошо" })
+    const beforeKeyboardMove = await column(
+      participantPage,
+      "Что прошло хорошо",
+    )
+      .getByRole("list", { name: "Что прошло хорошо" })
       .locator(":scope > li")
       .evaluateAll((items) =>
         items.map((item) => item.getAttribute("aria-label")),
       );
     const keyboardHandle = card(
       participantPage,
-      "Уже хорошо",
+      "Что прошло хорошо",
       "Пятый сигнал",
     ).getByRole("button", { name: "Переместить карточку «Пятый сигнал»" });
     await keyboardHandle.focus();
@@ -1229,8 +1259,8 @@ test("product release flow covers access, realtime, content and accessible DnD",
     await expect(
       participantPage.getByText(/Новый порядок сохранён/),
     ).toBeAttached();
-    const afterKeyboardMove = await column(participantPage, "Уже хорошо")
-      .getByRole("list", { name: "Уже хорошо" })
+    const afterKeyboardMove = await column(participantPage, "Что прошло хорошо")
+      .getByRole("list", { name: "Что прошло хорошо" })
       .locator(":scope > li")
       .evaluateAll((items) =>
         items.map((item) => item.getAttribute("aria-label")),
@@ -1238,8 +1268,11 @@ test("product release flow covers access, realtime, content and accessible DnD",
     expect(afterKeyboardMove).not.toEqual(beforeKeyboardMove);
     await participantPage.reload();
     await waitForBoard(participantPage, boardTitle);
-    const persistedKeyboardOrder = await column(participantPage, "Уже хорошо")
-      .getByRole("list", { name: "Уже хорошо" })
+    const persistedKeyboardOrder = await column(
+      participantPage,
+      "Что прошло хорошо",
+    )
+      .getByRole("list", { name: "Что прошло хорошо" })
       .locator(":scope > li")
       .evaluateAll((items) =>
         items.map((item) => item.getAttribute("aria-label")),
@@ -1247,18 +1280,18 @@ test("product release flow covers access, realtime, content and accessible DnD",
     expect(persistedKeyboardOrder).toEqual(afterKeyboardMove);
 
     for (const text of ["Второй сигнал", "Третий сигнал", "Четвёртый сигнал"]) {
-      await card(participantPage, "Уже хорошо", text)
+      await card(participantPage, "Что прошло хорошо", text)
         .getByRole("button", { name: `Проголосовать за карточку «${text}»` })
         .click();
     }
     await expect(
-      column(participantPage, "Уже хорошо").getByText("0 из 3 голосов", {
+      column(participantPage, "Что прошло хорошо").getByText("0 из 3 голосов", {
         exact: true,
       }),
     ).toBeVisible();
     const exhaustedVote = card(
       participantPage,
-      "Уже хорошо",
+      "Что прошло хорошо",
       "Пятый сигнал",
     ).getByRole("button", { name: "Проголосовать за карточку «Пятый сигнал»" });
     await expect(exhaustedVote).toBeDisabled();
@@ -1283,7 +1316,7 @@ test("product release flow covers access, realtime, content and accessible DnD",
     expect(await exhaustedResponse.json()).toMatchObject({
       error: { code: "COLUMN_VOTE_LIMIT_REACHED" },
     });
-    await card(participantPage, "Уже хорошо", "Второй сигнал")
+    await card(participantPage, "Что прошло хорошо", "Второй сигнал")
       .getByRole("button", {
         name: "Отменить голос за карточку «Второй сигнал»",
       })
@@ -1292,7 +1325,7 @@ test("product release flow covers access, realtime, content and accessible DnD",
     await exhaustedVote.click();
     const activeVote = card(
       participantPage,
-      "Уже хорошо",
+      "Что прошло хорошо",
       "Пятый сигнал",
     ).getByRole("button", {
       name: "Отменить голос за карточку «Пятый сигнал»",
@@ -1300,14 +1333,14 @@ test("product release flow covers access, realtime, content and accessible DnD",
     await expect(activeVote).toHaveAttribute("aria-pressed", "true");
     await expect(activeVote.locator("svg")).toHaveClass(/fill-current/);
     await expect(
-      card(ownerPage, "Уже хорошо", "Пятый сигнал").getByRole("button", {
+      card(ownerPage, "Что прошло хорошо", "Пятый сигнал").getByRole("button", {
         name: "Проголосовать за карточку «Пятый сигнал»",
       }),
     ).toContainText("1");
 
-    const ownerColumn = column(ownerPage, "Уже хорошо");
+    const ownerColumn = column(ownerPage, "Что прошло хорошо");
     const columnActionsTrigger = ownerColumn.getByRole("button", {
-      name: "Действия с колонкой «Уже хорошо»",
+      name: "Действия с колонкой «Что прошло хорошо»",
     });
     await columnActionsTrigger.focus();
     await ownerPage.keyboard.press("Enter");
@@ -1377,6 +1410,31 @@ test("product release flow covers access, realtime, content and accessible DnD",
     ).toBeVisible();
 
     if (process.env.UPDATE_PRODUCT_SCREENSHOT === "1") {
+      await ownerContext.addCookies([
+        {
+          name: "badaction_locale",
+          value: "en",
+          url: baseURL,
+          sameSite: "Lax",
+        },
+      ]);
+      await ownerPage.reload();
+      await expect(ownerPage.locator("html")).toHaveAttribute("lang", "en");
+      await expect(
+        ownerPage.getByRole("heading", { name: boardTitle, level: 1 }),
+      ).toBeVisible();
+      await expect(
+        ownerPage.getByRole("status", { name: "Sync status: Online" }),
+      ).toBeVisible();
+      await expect(
+        ownerPage.getByRole("region", {
+          name: "Что прошло хорошо",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        ownerPage.getByRole("button", { name: "More actions" }),
+      ).toBeVisible();
       await expect(ownerPage.locator("[data-sonner-toast]")).toHaveCount(0);
       await ownerPage.setViewportSize({ width: 1440, height: 1000 });
       await ownerPage
@@ -1402,6 +1460,23 @@ test("product release flow covers access, realtime, content and accessible DnD",
         style: "nextjs-portal { display: none !important; }",
       });
       await ownerPage.setViewportSize({ width: 1440, height: 1000 });
+      await ownerContext.addCookies([
+        {
+          name: "badaction_locale",
+          value: "ru",
+          url: baseURL,
+          sameSite: "Lax",
+        },
+      ]);
+      await ownerPage.reload();
+      await expect(ownerPage.locator("html")).toHaveAttribute("lang", "ru");
+      await waitForBoard(ownerPage, boardTitle);
+      await expect(
+        ownerPage.getByRole("region", {
+          name: "Что прошло хорошо",
+          exact: true,
+        }),
+      ).toBeVisible();
     }
 
     await ownerPage.getByRole("button", { name: "Действия с группой" }).click();
@@ -1415,7 +1490,9 @@ test("product release flow covers access, realtime, content and accessible DnD",
     await expect(
       ownerPage.getByText("Общие наблюдения", { exact: true }),
     ).toHaveCount(0);
-    await expect(card(ownerPage, "Уже хорошо", "Третий сигнал")).toBeVisible();
+    await expect(
+      card(ownerPage, "Что прошло хорошо", "Третий сигнал"),
+    ).toBeVisible();
 
     await participantContext.setOffline(true);
     const degradedConnectionStatus = participantPage.getByRole("status", {
@@ -1471,12 +1548,12 @@ test("product release flow covers access, realtime, content and accessible DnD",
         .filter({ hasText: /Доска открыта только для чтения/ }),
     ).toBeVisible();
     await expect(
-      column(participantPage, "Уже хорошо").getByRole("button", {
-        name: "Добавить карточку в колонку «Уже хорошо»",
+      column(participantPage, "Что прошло хорошо").getByRole("button", {
+        name: "Добавить карточку в колонку «Что прошло хорошо»",
       }),
     ).toHaveCount(0);
 
-    const cardToDelete = card(ownerPage, "Уже хорошо", "Пятый сигнал");
+    const cardToDelete = card(ownerPage, "Что прошло хорошо", "Пятый сигнал");
     const reopenSettings = await openSettingsWithKeyboard(ownerPage);
     await reopenSettings
       .getByRole("checkbox", { name: /Только чтение/ })
@@ -1497,8 +1574,8 @@ test("product release flow covers access, realtime, content and accessible DnD",
 
     const longText = `Проверка переноса ${"я".repeat(1000)}`.slice(0, 1000);
     expect(longText).toHaveLength(1000);
-    await createCard(ownerPage, "Следует улучшить", longText);
-    const longCard = card(ownerPage, "Следует улучшить", longText);
+    await createCard(ownerPage, "Что можно улучшить", longText);
+    const longCard = card(ownerPage, "Что можно улучшить", longText);
     expect(
       await longCard.evaluate(
         (element) => element.scrollWidth <= element.clientWidth + 1,
@@ -1514,7 +1591,7 @@ test("product release flow covers access, realtime, content and accessible DnD",
     });
     await deleteDialog.getByRole("button", { name: "Удалить" }).click();
     await expect(
-      card(participantPage, "Уже хорошо", "Пятый сигнал"),
+      card(participantPage, "Что прошло хорошо", "Пятый сигнал"),
     ).toHaveCount(0);
 
     const longColumnTitle =
@@ -1534,7 +1611,8 @@ test("product release flow covers access, realtime, content and accessible DnD",
       .evaluateAll(
         (inputs) =>
           inputs.find(
-            (input) => (input as HTMLInputElement).value === "Следует улучшить",
+            (input) =>
+              (input as HTMLInputElement).value === "Что можно улучшить",
           )?.id ?? null,
       );
     if (!sourceColumnTitleId) {
