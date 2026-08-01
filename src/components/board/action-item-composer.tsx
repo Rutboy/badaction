@@ -118,6 +118,7 @@ export const ActionItemComposer = ({
 
   return (
     <form
+      noValidate
       className={cn("space-y-3 rounded-lg border bg-card p-3", className)}
       aria-busy={pending}
       onSubmit={(event) => {

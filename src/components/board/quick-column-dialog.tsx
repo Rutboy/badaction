@@ -164,6 +164,7 @@ export const QuickColumnDialog = ({
           </DialogDescription>
         </DialogHeader>
         <form
+          noValidate
           className="space-y-4"
           aria-busy={pending}
           onSubmit={(event) => {

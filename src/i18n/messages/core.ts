@@ -19,7 +19,6 @@ export const coreEn = {
     download: "Download",
     copy: "Copy",
     copied: "Copied",
-    optional: "optional",
     loading: "Loading…",
     retry: "Try again",
     backHome: "Back to home",
@@ -33,6 +32,10 @@ export const coreEn = {
     label: "Language",
     menuLabel: "Choose interface language",
     current: "Current language: {language}",
+  },
+  memberDefaults: {
+    owner: "Owner",
+    participant: "Participant",
   },
   defaultColumns: {
     wentWell: "Went well",
@@ -69,7 +72,7 @@ export const coreEn = {
   join: {
     title: "Join the retrospective",
     description: "Confirm the invitation. Adding your name is optional.",
-    nameLabel: "Your name",
+    nameLabel: "Your name (optional)",
     namePlaceholder: "For example, Alex",
     submit: "Join",
     submitting: "Checking invitation…",
@@ -193,7 +196,6 @@ export const coreRu = {
     download: "Скачать",
     copy: "Копировать",
     copied: "Скопировано",
-    optional: "необязательно",
     loading: "Загрузка…",
     retry: "Повторить",
     backHome: "Вернуться на главную",
@@ -207,6 +209,10 @@ export const coreRu = {
     label: "Язык",
     menuLabel: "Выбрать язык интерфейса",
     current: "Текущий язык: {language}",
+  },
+  memberDefaults: {
+    owner: "Владелец",
+    participant: "Участник",
   },
   defaultColumns: {
     wentWell: "Что прошло хорошо",
@@ -244,7 +250,7 @@ export const coreRu = {
     title: "Присоединиться к ретроспективе",
     description:
       "Подтвердите вход по приглашению. Имя указывать необязательно.",
-    nameLabel: "Ваше имя",
+    nameLabel: "Ваше имя (необязательно)",
     namePlaceholder: "Например, Алексей",
     submit: "Присоединиться",
     submitting: "Проверяем приглашение…",
@@ -388,7 +394,6 @@ export const coreEs = {
     download: "Descargar",
     copy: "Copiar",
     copied: "Copiado",
-    optional: "opcional",
     loading: "Cargando…",
     retry: "Reintentar",
     backHome: "Volver al inicio",
@@ -402,6 +407,10 @@ export const coreEs = {
     label: "Idioma",
     menuLabel: "Elegir el idioma de la interfaz",
     current: "Idioma actual: {language}",
+  },
+  memberDefaults: {
+    owner: "Propietario",
+    participant: "Participante",
   },
   defaultColumns: {
     wentWell: "Salió bien",
@@ -438,7 +447,7 @@ export const coreEs = {
   join: {
     title: "Unirse a la retrospectiva",
     description: "Confirma la invitación. Indicar tu nombre es opcional.",
-    nameLabel: "Tu nombre",
+    nameLabel: "Tu nombre (opcional)",
     namePlaceholder: "Por ejemplo, Alex",
     submit: "Unirse",
     submitting: "Comprobando la invitación…",

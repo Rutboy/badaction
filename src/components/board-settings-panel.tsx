@@ -481,6 +481,7 @@ export const BoardSettingsContent = ({
         ) : null}
 
         <form
+          noValidate
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
@@ -628,6 +629,7 @@ export const BoardSettingsContent = ({
             return (
               <li key={column.id} className="p-4">
                 <form
+                  noValidate
                   className="space-y-3"
                   onSubmit={(event) => {
                     event.preventDefault();
@@ -720,6 +722,7 @@ export const BoardSettingsContent = ({
         </ul>
 
         <form
+          noValidate
           className="space-y-4 rounded-lg border bg-secondary/35 p-4"
           onSubmit={(event) => {
             event.preventDefault();

@@ -6,6 +6,7 @@ import { MAX_ACTIVE_OWNED_BOARDS_PER_SESSION } from "../constants/access.ts";
 import { ApiError } from "../errors/api-error-base.ts";
 import { getDefaultBoardColumns } from "../../i18n/default-columns.ts";
 import type { Locale } from "../../i18n/locales.ts";
+import { createTranslator } from "../../i18n/translate.ts";
 import {
   incrementBoardRevision,
   lockBoardForMutation,
@@ -40,6 +41,7 @@ export const createTargetBoard = async (
   locale: Locale = "en",
 ) => {
   const normalizedTitle = normalizeBoardTitle(title);
+  const t = createTranslator(locale);
   const createdAt = new Date();
   const expiresAt = new Date(
     createdAt.getTime() + getBoardRetentionDays() * 24 * 60 * 60 * 1000,
@@ -101,6 +103,7 @@ export const createTargetBoard = async (
     await createOwnerMembershipInTransaction(tx, {
       boardId: board.id,
       sessionId: session.id,
+      displayName: t("memberDefaults.owner"),
     });
     await tx.boardColumn.createMany({
       data: getDefaultBoardColumns(locale).map((column) => ({

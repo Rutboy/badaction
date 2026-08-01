@@ -5,6 +5,10 @@ import { resolve } from "node:path";
 import ts from "typescript";
 
 const roots = [resolve("src/app"), resolve("src/components")];
+const localeSpecificRoots = [...roots, resolve("src/lib")];
+const legacyLocalizedContractFiles = new Set([
+  resolve("src/lib/constants/columns.ts"),
+]);
 const userTextAttributes = new Set([
   "alt",
   "aria-description",
@@ -46,6 +50,8 @@ const sourceFiles = async (directory) => {
 // Numeric counters and punctuation (for example, "/ 1000") are language-neutral.
 // The guard is concerned with literal words that belong in the dictionaries.
 const hasWords = (value) => /\p{L}/u.test(value.trim());
+const hasLocaleSpecificCopy = (value) =>
+  /\p{Script=Cyrillic}|[¿¡ÁÉÍÓÚÑÜáéíóúñü]/u.test(value);
 
 const literalText = (node) => {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
@@ -138,5 +144,43 @@ test("application UI does not introduce hardcoded user-facing text", async () =>
     violations,
     [],
     `Move user-facing text to src/i18n/messages:\n${violations.join("\n")}`,
+  );
+});
+
+test("non-dictionary product modules do not introduce locale-specific copy", async () => {
+  const files = (await Promise.all(localeSpecificRoots.map(sourceFiles)))
+    .flat()
+    .sort()
+    .filter((file) => !legacyLocalizedContractFiles.has(file));
+  const violations = [];
+
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    if (hasLocaleSpecificCopy(source)) {
+      violations.push(file.slice(process.cwd().length + 1));
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    `Move locale-specific product copy to src/i18n/messages:\n${violations.join("\n")}`,
+  );
+});
+
+test("the isolated legacy export labels remain an exact compatibility contract", async () => {
+  const source = await readFile(
+    resolve("src/lib/constants/columns.ts"),
+    "utf8",
+  );
+  const labels = Array.from(
+    source.matchAll(/\{ key: "[A-Z_]+", label: "([^"]+)" \}/g),
+    (match) => match[1],
+  );
+
+  assert.deepEqual(labels, ["Уже хорошо", "Следует улучшить", "Решения"]);
+  assert.match(
+    source,
+    /Legacy stage-0 export labels are part of the byte-stable machine format/,
   );
 });

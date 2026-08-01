@@ -564,12 +564,24 @@ export const redeemBoardInvitation = async (
   {
     env = process.env,
     now = new Date(),
-  }: Omit<AccessOptions, "client"> = {},
+    ownerDisplayName = "Owner",
+  }: Omit<AccessOptions, "client"> & { ownerDisplayName?: string } = {},
 ) => {
   const tokenHash = deriveInvitationTokenHash(token, env);
   const normalizedDisplayName = displayName.trim();
   if (normalizedDisplayName.length < 1 || normalizedDisplayName.length > 80) {
     throw new ApiError(400, "VALIDATION_ERROR", "The participant name must contain between 1 and 80 characters.");
+  }
+  const normalizedOwnerDisplayName = ownerDisplayName.trim();
+  if (
+    normalizedOwnerDisplayName.length < 1 ||
+    normalizedOwnerDisplayName.length > 80
+  ) {
+    throw new ApiError(
+      400,
+      "VALIDATION_ERROR",
+      "The owner name must contain between 1 and 80 characters.",
+    );
   }
 
   return withSerializableRetry(async (tx) => {
@@ -703,7 +715,9 @@ export const redeemBoardInvitation = async (
             boardId: invitation.boardId,
             sessionId: session.id,
             role: invitation.role,
-            displayName: invitation.role === "OWNER" ? "Owner" : normalizedDisplayName,
+            displayName: invitation.role === "OWNER"
+              ? normalizedOwnerDisplayName
+              : normalizedDisplayName,
           },
           select: { id: true, role: true, displayName: true },
         });
@@ -714,7 +728,9 @@ export const redeemBoardInvitation = async (
           boardId: invitation.boardId,
           sessionId: session.id,
           role: invitation.role,
-          displayName: invitation.role === "OWNER" ? "Owner" : normalizedDisplayName,
+          displayName: invitation.role === "OWNER"
+            ? normalizedOwnerDisplayName
+            : normalizedDisplayName,
         },
         select: { id: true, role: true, displayName: true },
       });

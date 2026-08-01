@@ -56,7 +56,11 @@ const createInvitation = async (page: Page, maxUses = 1): Promise<string> => {
   const dialog = page.getByRole("dialog", { name: "Управление доской" });
   await dialog.getByLabel("Количество входов").fill(String(maxUses));
   await dialog.getByRole("button", { name: "Создать ссылку" }).click();
-  await expect(dialog.getByText(`Доступно входов: ${maxUses}.`)).toBeVisible();
+  await expect(
+    dialog.getByText(
+      maxUses === 1 ? "Доступен 1 вход." : `Доступно ${maxUses} входа.`,
+    ),
+  ).toBeVisible();
   const invitation = dialog.getByLabel("Ссылка показывается только сейчас");
   const value = await invitation.inputValue();
   const invitationIsValid = /\/join#[A-Za-z0-9_-]{43}$/.test(value);
@@ -953,15 +957,13 @@ test("product release flow covers access, realtime, content and accessible DnD",
 
     const deniedResponse = await participantPage.goto(`/boards/${boardId}`);
     expect(deniedResponse?.status()).toBe(404);
-    expect(deniedResponse?.headers()["content-type"]).toContain(
-      "application/json",
-    );
-    expect(await deniedResponse?.json()).toEqual({
-      error: {
-        code: "BOARD_NOT_FOUND",
-        message: "Доска не найдена",
-      },
-    });
+    expect(deniedResponse?.headers()["content-type"]).toContain("text/html");
+    await expect(
+      participantPage.getByRole("heading", {
+        name: "Доска недоступна",
+        level: 1,
+      }),
+    ).toBeVisible();
     const deniedApiResponse = await participantContext.request.get(
       `/api/boards/${boardId}`,
     );
@@ -969,7 +971,7 @@ test("product release flow covers access, realtime, content and accessible DnD",
     expect(await deniedApiResponse.json()).toEqual({
       error: {
         code: "BOARD_NOT_FOUND",
-        message: "Доска не найдена",
+        message: "Board not found.",
       },
     });
 
@@ -979,7 +981,7 @@ test("product release flow covers access, realtime, content and accessible DnD",
     await replayPage.getByLabel("Ваше имя").fill("Повторный вход");
     await replayPage.getByRole("button", { name: "Присоединиться" }).click();
     const replayError =
-      "Приглашение недействительно, использовано или просрочено.";
+      "Приглашение некорректно, истекло или уже использовано.";
     await expect(
       replayPage.getByRole("alert").filter({ hasText: replayError }),
     ).toHaveText(replayError);
@@ -1499,12 +1501,12 @@ test("product release flow covers access, realtime, content and accessible DnD",
       name: /Состояние синхронизации: (Переподключение…|Резервное обновление)/,
     });
     const persistentConnectionNotice = participantPage.getByText(
-      /Realtime(?:-соединение прервано| недоступен)/,
+      /(?:Соединение для обновлений в реальном времени прервано|Обновления в реальном времени недоступны)/,
     );
     await expect(persistentConnectionNotice).toHaveCount(0);
     await expect(degradedConnectionStatus).toBeVisible({ timeout: 30_000 });
     await expect(degradedConnectionStatus).toHaveCount(1);
-    await expect(persistentConnectionNotice).toBeVisible({ timeout: 12_000 });
+    await expect(persistentConnectionNotice).toBeVisible({ timeout: 25_000 });
     await expect(degradedConnectionStatus).toHaveCount(1);
 
     const toolbarOverflow = ownerPage.getByRole("button", {

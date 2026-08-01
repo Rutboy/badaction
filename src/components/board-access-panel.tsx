@@ -445,6 +445,7 @@ export const BoardAccessContent = ({
         </p>
       </div>
       <form
+        noValidate
         className="flex flex-col gap-2 sm:flex-row sm:items-start"
         onSubmit={(event) => {
           event.preventDefault();

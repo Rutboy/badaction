@@ -24,12 +24,21 @@ export const normalizeLocale = (value: unknown): Locale => {
     return DEFAULT_LOCALE;
   }
 
-  const language = value
-    .trim()
-    .replaceAll("_", "-")
-    .split("-", 1)[0]
-    ?.toLowerCase();
-  return isLocale(language) ? language : DEFAULT_LOCALE;
+  const candidate = value.trim().replaceAll("_", "-");
+  if (candidate.length === 0) {
+    return DEFAULT_LOCALE;
+  }
+
+  try {
+    const [canonicalLocale] = Intl.getCanonicalLocales(candidate);
+    if (!canonicalLocale) {
+      return DEFAULT_LOCALE;
+    }
+    const language = new Intl.Locale(canonicalLocale).language.toLowerCase();
+    return isLocale(language) ? language : DEFAULT_LOCALE;
+  } catch {
+    return DEFAULT_LOCALE;
+  }
 };
 
 export const getLocaleCookieOptions = () => ({

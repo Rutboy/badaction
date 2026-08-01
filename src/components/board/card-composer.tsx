@@ -96,6 +96,7 @@ export const CardComposer = ({
 
   return (
     <form
+      noValidate
       className="space-y-2 border-b pb-3"
       aria-label={t("content.card.newInColumn", { column: columnTitle })}
       onSubmit={(event) => {

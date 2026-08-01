@@ -73,7 +73,9 @@ export const I18nProvider = ({
       if (nextLocale === locale) {
         return;
       }
+      const nextTranslator = createTranslator(nextLocale);
       document.documentElement.lang = nextLocale;
+      document.title = nextTranslator("metadata.title");
       setCurrentLocale(nextLocale);
       startTransition(() => router.refresh());
     },

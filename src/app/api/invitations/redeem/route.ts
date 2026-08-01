@@ -1,6 +1,7 @@
 import { redeemBoardInvitation } from "@/lib/access/acl-service";
 import { getOrSetVisitorToken } from "@/lib/cookies/visitor-token";
 import { ApiError, toErrorResponse } from "@/lib/errors/api-error";
+import { getServerI18n } from "@/i18n/server";
 import {
   getTrustedProxyRateLimitIdentity,
   getVisitorRateLimitIdentity,
@@ -27,10 +28,12 @@ export async function POST(request: Request) {
       });
     }
 
+    const { t } = await getServerI18n();
     const membership = await redeemBoardInvitation(
       parsed.data.token,
       visitorPayload,
-      parsed.data.displayName ?? "Participant",
+      parsed.data.displayName ?? t("memberDefaults.participant"),
+      { ownerDisplayName: t("memberDefaults.owner") },
     );
     return Response.json(membership, {
       headers: { "Cache-Control": "no-store" },

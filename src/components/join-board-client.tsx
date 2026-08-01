@@ -97,6 +97,7 @@ export const JoinBoardClient = () => {
         </p>
 
         <form
+          noValidate
           className="mt-8 space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
@@ -104,10 +105,7 @@ export const JoinBoardClient = () => {
           }}
         >
           <label htmlFor="display-name" className="block text-sm font-medium">
-            {t("join.nameLabel")} {" "}
-            <span className="font-normal text-muted-foreground">
-              ({t("common.optional")})
-            </span>
+            {t("join.nameLabel")}
           </label>
           <Input
             ref={displayNameRef}

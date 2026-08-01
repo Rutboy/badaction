@@ -129,6 +129,7 @@ export const BoardToolbar = ({
         <div className="min-w-0 flex-1">
           {editingTitle ? (
             <form
+              noValidate
               className="flex max-w-2xl items-center gap-1"
               onSubmit={(event) => {
                 event.preventDefault();

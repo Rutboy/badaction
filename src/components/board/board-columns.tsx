@@ -635,10 +635,17 @@ const SortableBoardItem = ({
       <div className="mt-3 flex min-w-0 items-center gap-1 border-t pt-2">
         <VoteButton
           cardId={item.kind === "CARD" ? item.id : item.primaryCardId}
-          label={
+          voteLabel={
             item.kind === "CARD"
-              ? t("content.card.itemLabel", { text: item.text })
-              : t("content.group.itemLabel", {
+              ? t("content.vote.voteForCard", { text: item.text })
+              : t("content.vote.voteForGroup", {
+                  title: item.title ?? t("content.group.unnamed"),
+                })
+          }
+          removeVoteLabel={
+            item.kind === "CARD"
+              ? t("content.vote.removeVoteFromCard", { text: item.text })
+              : t("content.vote.removeVoteFromGroup", {
                   title: item.title ?? t("content.group.unnamed"),
                 })
           }
@@ -716,7 +723,8 @@ const CardText = ({ card }: { card: CardView }) => {
 
 const VoteButton = ({
   cardId,
-  label,
+  voteLabel,
+  removeVoteLabel,
   voteCount,
   viewerHasVoted,
   canVote,
@@ -727,7 +735,8 @@ const VoteButton = ({
   actionError,
 }: {
   cardId: string;
-  label: string;
+  voteLabel: string;
+  removeVoteLabel: string;
   voteCount: number;
   viewerHasVoted: boolean;
   canVote: boolean;
@@ -759,12 +768,7 @@ const VoteButton = ({
     <div className="space-y-1">
       <Button
         type="button"
-        aria-label={t(
-          viewerHasVoted
-            ? "content.vote.removeVoteFor"
-            : "content.vote.voteFor",
-          { item: label },
-        )}
+        aria-label={viewerHasVoted ? removeVoteLabel : voteLabel}
         aria-pressed={viewerHasVoted}
         aria-describedby={descriptionId}
         title={disabledReason ?? undefined}
@@ -890,7 +894,13 @@ const GroupItemContent = ({
               {card.viewerHasVoted && card.id !== group.primaryCardId ? (
                 <VoteButton
                   cardId={card.id}
-                  label={t("content.card.originalLabel", { text: card.text })}
+                  voteLabel={t("content.vote.voteForOriginalCard", {
+                    text: card.text,
+                  })}
+                  removeVoteLabel={t(
+                    "content.vote.removeVoteFromOriginalCard",
+                    { text: card.text },
+                  )}
                   voteCount={card.voteCount}
                   viewerHasVoted
                   canVote={canVote}

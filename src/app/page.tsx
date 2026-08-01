@@ -1,9 +1,11 @@
+"use client";
+
 import { CreateBoardButton } from "@/components/create-board-button";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { getServerI18n } from "@/i18n/server";
+import { useI18n } from "@/i18n/provider";
 
-export default async function HomePage() {
-  const { t } = await getServerI18n();
+export default function HomePage() {
+  const { t } = useI18n();
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl items-center px-5 py-12 sm:px-8">

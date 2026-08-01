@@ -81,15 +81,35 @@ databaseTest("board creation localizes only new default columns and does not per
   fixture.visitorPayloads.push(ownerPayload);
 
   const cases = [
-    { title: "English defaults", locale: "en", expected: ["Went well", "Could improve"] },
+    {
+      title: "English defaults",
+      locale: "en",
+      expected: ["Went well", "Could improve"],
+      expectedOwner: "Owner",
+    },
     {
       title: "Russian defaults",
       locale: "ru",
       expected: ["Что прошло хорошо", "Что можно улучшить"],
+      expectedOwner: "Владелец",
     },
-    { title: "Spanish defaults", locale: "es", expected: ["Salió bien", "Se puede mejorar"] },
-    { title: "Invalid locale fallback", locale: "de", expected: ["Went well", "Could improve"] },
-    { title: "Omitted locale fallback", expected: ["Went well", "Could improve"] },
+    {
+      title: "Spanish defaults",
+      locale: "es",
+      expected: ["Salió bien", "Se puede mejorar"],
+      expectedOwner: "Propietario",
+    },
+    {
+      title: "Invalid locale fallback",
+      locale: "de",
+      expected: ["Went well", "Could improve"],
+      expectedOwner: "Owner",
+    },
+    {
+      title: "Omitted locale fallback",
+      expected: ["Went well", "Could improve"],
+      expectedOwner: "Owner",
+    },
   ];
 
   try {
@@ -105,6 +125,11 @@ databaseTest("board creation localizes only new default columns and does not per
       });
       assert.equal(Object.hasOwn(persisted, "locale"), false);
       assert.equal(persisted.revision, 0n);
+      const owner = await prisma.boardMembership.findFirstOrThrow({
+        where: { boardId: board.id, role: "OWNER", revokedAt: null },
+        select: { displayName: true },
+      });
+      assert.equal(owner.displayName, localeCase.expectedOwner);
       assert.deepEqual(
         persisted.columns.map(({ title, position, voteLimit }) => ({
           title,

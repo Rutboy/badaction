@@ -61,6 +61,7 @@ export const CreateBoardButton = () => {
 
   return (
     <form
+      noValidate
       className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -93,7 +94,7 @@ export const CreateBoardButton = () => {
           type="submit"
           size="lg"
           className="h-11 shrink-0 px-5"
-          disabled={loading || title.trim().length === 0}
+          disabled={loading}
         >
           {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
           {loading ? t("home.creating") : t("home.create")}

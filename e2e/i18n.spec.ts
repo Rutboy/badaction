@@ -17,6 +17,7 @@ const boardIdPattern =
 
 type BoardState = {
   revision: string;
+  expiresAt: string;
   columns: Array<{
     id: string;
     title: string;
@@ -31,6 +32,8 @@ type BoardLocaleCase = {
   homeTitle: string;
   boardTitleLabel: string;
   createButton: string;
+  titleRequired: string;
+  rateLimitError: string;
   syncOnline: string;
   defaultColumns: readonly [string, string];
   moreActions: string;
@@ -38,6 +41,11 @@ type BoardLocaleCase = {
   managementTitle: string;
   interfaceSection: string;
   interfaceHeading: string;
+  interfacePersonal: string;
+  aboutSection: string;
+  expiresLabel: string;
+  moveColumn: string;
+  dragCanceled: string;
   targetLanguage: string;
   targetLocale: "en" | "ru" | "es";
   targetInterfaceHeading: string;
@@ -50,6 +58,8 @@ const boardLocaleCases: readonly BoardLocaleCase[] = [
     homeTitle: "A simple retrospective for your team",
     boardTitleLabel: "Retrospective name",
     createButton: "Create board",
+    titleRequired: "Enter a retrospective name.",
+    rateLimitError: "Too many requests. Try again later.",
     syncOnline: "Sync status: Online",
     defaultColumns: ["Went well", "Could improve"],
     moreActions: "More actions",
@@ -57,6 +67,12 @@ const boardLocaleCases: readonly BoardLocaleCase[] = [
     managementTitle: "Board management",
     interfaceSection: "Interface",
     interfaceHeading: "Interface",
+    interfacePersonal:
+      "This is a personal setting for this browser. It does not change the board or affect other participants.",
+    aboutSection: "About",
+    expiresLabel: "Data retained until",
+    moveColumn: "Move column “Went well”",
+    dragCanceled: "Move canceled: Column “Went well”.",
     targetLanguage: "Español",
     targetLocale: "es",
     targetInterfaceHeading: "Interfaz",
@@ -67,6 +83,8 @@ const boardLocaleCases: readonly BoardLocaleCase[] = [
     homeTitle: "Простая ретроспектива для вашей команды",
     boardTitleLabel: "Название ретроспективы",
     createButton: "Создать доску",
+    titleRequired: "Введите название ретроспективы.",
+    rateLimitError: "Слишком много запросов. Попробуйте позже.",
     syncOnline: "Состояние синхронизации: Онлайн",
     defaultColumns: ["Что прошло хорошо", "Что можно улучшить"],
     moreActions: "Дополнительные действия",
@@ -74,6 +92,12 @@ const boardLocaleCases: readonly BoardLocaleCase[] = [
     managementTitle: "Управление доской",
     interfaceSection: "Интерфейс",
     interfaceHeading: "Интерфейс",
+    interfacePersonal:
+      "Это персональная настройка этого браузера. Она не изменяет доску и не влияет на других участников.",
+    aboutSection: "О доске",
+    expiresLabel: "Данные хранятся до",
+    moveColumn: "Переместить колонку «Что прошло хорошо»",
+    dragCanceled: "Перемещение отменено: Колонка «Что прошло хорошо».",
     targetLanguage: "English",
     targetLocale: "en",
     targetInterfaceHeading: "Interface",
@@ -84,6 +108,8 @@ const boardLocaleCases: readonly BoardLocaleCase[] = [
     homeTitle: "Una retrospectiva sencilla para tu equipo",
     boardTitleLabel: "Nombre de la retrospectiva",
     createButton: "Crear tablero",
+    titleRequired: "Escribe un nombre para la retrospectiva.",
+    rateLimitError: "Demasiadas solicitudes. Inténtalo más tarde.",
     syncOnline: "Estado de sincronización: En línea",
     defaultColumns: ["Salió bien", "Se puede mejorar"],
     moreActions: "Más acciones",
@@ -91,6 +117,12 @@ const boardLocaleCases: readonly BoardLocaleCase[] = [
     managementTitle: "Gestión del tablero",
     interfaceSection: "Interfaz",
     interfaceHeading: "Interfaz",
+    interfacePersonal:
+      "Esta es una preferencia personal de este navegador. No cambia el tablero ni afecta a otras personas.",
+    aboutSection: "Acerca del tablero",
+    expiresLabel: "Datos conservados hasta",
+    moveColumn: "Mover la columna «Salió bien»",
+    dragCanceled: "Movimiento cancelado: Columna «Salió bien».",
     targetLanguage: "Русский",
     targetLocale: "ru",
     targetInterfaceHeading: "Интерфейс",
@@ -131,6 +163,16 @@ const expectNoPageOverflow = async (page: Page) => {
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(
+    dimensions.clientWidth + 1,
+  );
+};
+
+const expectNoHorizontalOverflow = async (locator: Locator) => {
+  const dimensions = await locator.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(
     dimensions.clientWidth + 1,
@@ -290,6 +332,16 @@ test.describe("locale smoke", () => {
             level: 1,
           }),
         ).toBeVisible();
+        for (const otherLocaleCase of boardLocaleCases) {
+          if (otherLocaleCase.locale !== localeCase.resolvedLocale) {
+            await expect(
+              page.getByRole("heading", {
+                name: otherLocaleCase.homeTitle,
+                level: 1,
+              }),
+            ).toHaveCount(0);
+          }
+        }
         if (localeCase.browserLocale === "de-DE") {
           const cookiesBeforeSelection = await context.cookies(baseURL);
           expect(
@@ -336,9 +388,23 @@ test.describe("locale smoke", () => {
       await page.keyboard.press("Enter");
 
       await expect(page.locator("html")).toHaveAttribute("lang", "en");
+      await expect(page).toHaveTitle("Sprint retrospective");
+      await expect(
+        page.getByRole("heading", {
+          name: "A simple retrospective for your team",
+          level: 1,
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Простая ретроспектива для вашей команды",
+          level: 1,
+        }),
+      ).toHaveCount(0);
       await expect(page.getByLabel("Retrospective name")).toHaveValue(
         draftTitle,
       );
+      await expect(languageTrigger(page, "en")).toBeFocused();
       await expect
         .poll(async () => {
           const cookies = await context.cookies(baseURL);
@@ -362,6 +428,54 @@ test.describe("locale smoke", () => {
       ).toBeVisible();
     } finally {
       await context.close();
+    }
+  });
+
+  test("validation and API errors follow the active locale", async ({
+    browser,
+  }) => {
+    const baseURL = getBaseURL();
+
+    for (const localeCase of boardLocaleCases) {
+      const context = await createLocaleContext(
+        browser,
+        baseURL,
+        localeCase.browserLocale,
+      );
+      try {
+        const page = await context.newPage();
+        await page.goto("/");
+        await page
+          .getByRole("button", { name: localeCase.createButton, exact: true })
+          .click();
+        await expect(page.locator("#board-title-error")).toHaveText(
+          localeCase.titleRequired,
+        );
+
+        await page.route("**/api/boards", async (route) => {
+          await route.fulfill({
+            status: 429,
+            contentType: "application/json",
+            body: JSON.stringify({
+              error: {
+                code: "RATE_LIMIT_EXCEEDED",
+                message: "Too many requests. Try again later.",
+              },
+            }),
+          });
+        });
+        await page
+          .getByLabel(localeCase.boardTitleLabel)
+          .fill(`Localized error ${localeCase.locale}`);
+        await page
+          .getByRole("button", { name: localeCase.createButton, exact: true })
+          .click();
+        await expect(page.locator("#board-title-error")).toHaveText(
+          localeCase.rateLimitError,
+        );
+      } finally {
+        await context.close();
+      }
     }
   });
 
@@ -423,10 +537,53 @@ test.describe("locale smoke", () => {
           },
         ]);
 
+        const columnHandle = page.getByRole("button", {
+          name: localeCase.moveColumn,
+          exact: true,
+        });
+        await columnHandle.focus();
+        await page.keyboard.press("Space");
+        await expect(columnHandle).toHaveAttribute("aria-pressed", "true");
+        await page.keyboard.press("Escape");
+        await expect(
+          page.getByText(localeCase.dragCanceled, { exact: true }).first(),
+        ).toBeAttached();
+
         const panel = await openBoardInterface(page, localeCase);
+        const interfaceContent = panel.getByRole("region", {
+          name: localeCase.interfaceHeading,
+          exact: true,
+        });
+        await expect(
+          interfaceContent.getByText(localeCase.interfacePersonal, {
+            exact: true,
+          }),
+        ).toBeVisible();
+        if (mobile) {
+          await expectNoPageOverflow(page);
+          await expectNoHorizontalOverflow(interfaceContent);
+        }
+        await panel
+          .getByRole("button", { name: localeCase.aboutSection, exact: true })
+          .click();
+        const expiryRow = panel
+          .getByText(localeCase.expiresLabel, { exact: true })
+          .locator("..");
+        await expect(expiryRow.locator("time")).toHaveText(
+          new Intl.DateTimeFormat(localeCase.locale, {
+            dateStyle: "long",
+            timeZone: "UTC",
+          }).format(new Date(beforeSwitch.expiresAt)),
+        );
         if (mobile) {
           await expectNoPageOverflow(page);
         }
+        await panel
+          .getByRole("button", {
+            name: localeCase.interfaceSection,
+            exact: true,
+          })
+          .click();
         await selectLanguage(
           page,
           panel,
@@ -457,6 +614,8 @@ test.describe("locale smoke", () => {
         expect(compactColumns(afterSwitch)).toEqual(
           compactColumns(beforeSwitch),
         );
+        await page.keyboard.press("Escape");
+        await expect(panel).toBeHidden();
         for (const title of localeCase.defaultColumns) {
           await expect(
             page.getByRole("region", { name: title, exact: true }),
@@ -645,6 +804,15 @@ test.describe("locale smoke", () => {
         compactColumns(beforeSwitch),
       );
       expect(observedMutations).toEqual([]);
+
+      await Promise.all([
+        ownerPage.keyboard.press("Escape"),
+        participantPage.keyboard.press("Escape"),
+      ]);
+      await Promise.all([
+        expect(ownerPanel).toBeHidden(),
+        expect(participantPanel).toBeHidden(),
+      ]);
 
       for (const page of [ownerPage, participantPage]) {
         await expect(

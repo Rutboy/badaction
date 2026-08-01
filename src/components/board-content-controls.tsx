@@ -338,6 +338,7 @@ export const CardMenu = ({
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "edit"}
             onSubmit={(event) => {
@@ -408,6 +409,7 @@ export const CardMenu = ({
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "action"}
             onSubmit={(event) => {
@@ -612,6 +614,7 @@ export const GroupMenu = ({
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "edit"}
             onSubmit={(event) => {
@@ -847,6 +850,7 @@ export const GroupCardsDialog = ({
           </DialogDescription>
         </DialogHeader>
         <form
+          noValidate
           className="flex min-h-0 flex-1 flex-col"
           aria-busy={pending}
           onSubmit={(event) => {
@@ -1135,6 +1139,7 @@ export const ActionItemMenu = ({
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "edit"}
             onSubmit={(event) => {
