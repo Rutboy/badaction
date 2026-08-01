@@ -57,7 +57,7 @@ databaseTest("service preserves vote, duplicate, card quota, and expiry invarian
       where: { id: voteBoard.id },
       select: { title: true, revision: true },
     });
-    assert.equal(storedVoteBoard.title, `Ретроспектива ${voteBoard.id.slice(0, 8)}`);
+    assert.equal(storedVoteBoard.title, `Retrospective ${voteBoard.id.slice(0, 8)}`);
     assert.equal(storedVoteBoard.revision, 0n);
     const voteColumns = await getLegacyFeedbackColumns(voteBoard.id);
     assert.deepEqual(
