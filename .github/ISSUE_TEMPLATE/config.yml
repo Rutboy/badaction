@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/Rutboy/badaction/tree/main/docs
+    about: Read setup, deployment, operations, and troubleshooting guidance.
+  - name: Support guidelines
+    url: https://github.com/Rutboy/badaction/blob/main/SUPPORT.md
+    about: Choose the right channel and learn what diagnostic information to include.
+  - name: Private security report
+    url: https://github.com/Rutboy/badaction/security/advisories/new
+    about: Report a suspected vulnerability privately; do not open a public issue.

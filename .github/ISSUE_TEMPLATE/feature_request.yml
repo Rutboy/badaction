@@ -1,0 +1,58 @@
+name: Feature request
+description: Suggest an improvement grounded in a concrete user or operator need
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement. Search existing issues first and describe the problem before the solution.
+
+        Report vulnerabilities privately through [SECURITY.md](https://github.com/Rutboy/badaction/security/policy), not with this form.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Who encounters the problem, in what situation, and what outcome is difficult today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the behavior you would like Badaction to provide.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe current workarounds or other approaches you considered.
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Compatibility and operational impact
+      description: Note any expected API, database, deployment, security, privacy, or accessibility implications.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add sanitized examples, mockups, or links that clarify the request.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues for the same request.
+          required: true
+        - label: This request does not disclose a security vulnerability.
+          required: true
+        - label: I understand that submitting a request does not guarantee implementation or a timeline.
+          required: true

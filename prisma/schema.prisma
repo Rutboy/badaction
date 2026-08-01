@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Board {
+  id            String            @id @default(uuid()) @db.Uuid
+  title         String            @db.VarChar(120)
+  cardsEnabled  Boolean           @default(true) @map("cards_enabled")
+  votingEnabled Boolean           @default(true) @map("voting_enabled")
+  readOnly      Boolean           @default(false) @map("read_only")
+  revision      BigInt            @default(0)
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt     DateTime          @default(dbgenerated("CURRENT_TIMESTAMP + INTERVAL '90 days'")) @map("expires_at") @db.Timestamptz(3)
+  columns       BoardColumn[]
+  cards         Card[]
+  cardGroups    CardGroup[]
+  actionItems   ActionItem[]
+  memberships   BoardMembership[]
+  invitations   BoardInvitation[]
+
+  @@index([expiresAt])
+  @@map("boards")
+}
+
+model BoardColumn {
+  id        String      @id @default(uuid()) @db.Uuid
+  boardId   String      @map("board_id") @db.Uuid
+  title     String      @db.VarChar(80)
+  position  Int
+  voteLimit Int         @default(3) @map("vote_limit") @db.SmallInt
+  board     Board       @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cards     Card[]      @relation("CardColumn")
+  groups    CardGroup[] @relation("GroupColumn")
+  votes     Vote[]      @relation("VoteColumn")
+
+  @@unique([id, boardId], map: "board_columns_id_board_id_key")
+  @@index([boardId, position, id], map: "board_columns_board_id_position_id_idx")
+  @@map("board_columns")
+}
+
+model Card {
+  id                    String           @id @default(uuid()) @db.Uuid
+  boardId               String           @map("board_id") @db.Uuid
+  column                ColumnType?
+  columnId              String           @map("column_id") @db.Uuid
+  text                  String
+  owner                 String?
+  author                String?          @db.VarChar(120)
+  createdByMembershipId String?          @map("created_by_membership_id") @db.Uuid
+  position              Int
+  groupId               String?          @map("group_id") @db.Uuid
+  groupPosition         Int?             @map("group_position")
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime         @default(now()) @map("updated_at") @db.Timestamptz(3)
+  board                 Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  columnDefinition      BoardColumn      @relation("CardColumn", fields: [columnId, boardId], references: [id, boardId], onDelete: NoAction, onUpdate: NoAction)
+  createdByMembership   BoardMembership? @relation("CardCreator", fields: [createdByMembershipId, boardId], references: [id, boardId], onDelete: NoAction, onUpdate: NoAction)
+  group                 CardGroup?       @relation("GroupCards", fields: [groupId, boardId, columnId], references: [id, boardId, columnId], onDelete: NoAction, onUpdate: NoAction)
+  primaryForGroups      CardGroup[]      @relation("GroupPrimaryCard")
+  sourceActionItems     ActionItem[]     @relation("ActionItemSourceCard")
+  votes                 Vote[]
+
+  @@unique([id, boardId], map: "cards_id_board_id_key")
+  @@unique([id, boardId, columnId], map: "cards_id_board_id_column_id_key")
+  @@unique([id, boardId, column], map: "cards_vote_identity_key")
+  @@index([boardId, column, createdAt(sort: Desc)])
+  @@index([boardId])
+  @@index([groupId, groupPosition, id], map: "cards_group_id_group_position_id_idx")
+  @@index([createdByMembershipId], map: "cards_created_by_membership_id_idx")
+  @@map("cards")
+}
+
+model CardGroup {
+  id            String      @id @default(uuid()) @db.Uuid
+  boardId       String      @map("board_id") @db.Uuid
+  columnId      String      @map("column_id") @db.Uuid
+  position      Int
+  primaryCardId String      @map("primary_card_id") @db.Uuid
+  title         String?     @db.VarChar(120)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @default(now()) @map("updated_at") @db.Timestamptz(3)
+  board         Board       @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  column        BoardColumn @relation("GroupColumn", fields: [columnId, boardId], references: [id, boardId], onDelete: NoAction, onUpdate: NoAction)
+  primaryCard   Card        @relation("GroupPrimaryCard", fields: [primaryCardId, boardId, columnId], references: [id, boardId, columnId], onDelete: NoAction, onUpdate: NoAction)
+  cards         Card[]      @relation("GroupCards")
+
+  @@unique([id, boardId, columnId], map: "card_groups_id_board_id_column_id_key")
+  @@index([boardId, columnId, position, id], map: "card_groups_board_id_column_id_position_id_idx")
+  @@map("card_groups")
+}
+
+model Vote {
+  id               String      @id @default(uuid()) @db.Uuid
+  boardId          String      @map("board_id") @db.Uuid
+  cardId           String      @map("card_id") @db.Uuid
+  column           ColumnType?
+  columnId         String      @map("column_id") @db.Uuid
+  visitorToken     String      @map("visitor_token")
+  quotaSlot        Int         @map("quota_slot") @db.SmallInt
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  card             Card        @relation(fields: [cardId, boardId, columnId], references: [id, boardId, columnId], onDelete: Cascade, onUpdate: NoAction)
+  columnDefinition BoardColumn @relation("VoteColumn", fields: [columnId, boardId], references: [id, boardId], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([cardId, visitorToken])
+  @@unique([boardId, columnId, visitorToken, quotaSlot], map: "votes_board_id_column_id_visitor_token_quota_slot_key")
+  @@index([cardId])
+  @@index([boardId, columnId], map: "votes_board_id_column_id_idx")
+  @@map("votes")
+}
+
+model ActionItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  boardId      String   @map("board_id") @db.Uuid
+  text         String
+  assignee     String?  @db.VarChar(120)
+  completed    Boolean  @default(false)
+  position     Int
+  sourceCardId String?  @map("source_card_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  board        Board    @relation(fields: [boardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sourceCard   Card?    @relation("ActionItemSourceCard", fields: [sourceCardId, boardId], references: [id, boardId], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([boardId, position, id], map: "action_items_board_id_position_id_idx")
+  @@index([sourceCardId], map: "action_items_source_card_id_idx")
+  @@map("action_items")
+}
+
+model RateLimitBucket {
+  key     String   @id @db.VarChar(64)
+  count   Int
+  resetAt DateTime @map("reset_at") @db.Timestamptz(3)
+
+  @@index([resetAt])
+  @@map("rate_limit_buckets")
+}
+
+model AnonymousSession {
+  id                 String            @id @default(uuid()) @db.Uuid
+  credentialHash     String            @unique(map: "anonymous_sessions_credential_hash_key") @map("credential_hash") @db.VarChar(43)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt          DateTime          @map("expires_at") @db.Timestamptz(3)
+  revokedAt          DateTime?         @map("revoked_at") @db.Timestamptz(3)
+  memberships        BoardMembership[]
+  createdInvitations BoardInvitation[] @relation("BoardInvitationCreator")
+
+  @@index([expiresAt])
+  @@map("anonymous_sessions")
+}
+
+model BoardMembership {
+  id          String              @id @default(uuid()) @db.Uuid
+  boardId     String              @map("board_id") @db.Uuid
+  sessionId   String              @map("session_id") @db.Uuid
+  role        BoardMembershipRole
+  displayName String              @map("display_name") @db.VarChar(80)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt   DateTime?           @map("revoked_at") @db.Timestamptz(3)
+
+  board        Board                  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  session      AnonymousSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  redemptions  InvitationRedemption[]
+  createdCards Card[]                 @relation("CardCreator")
+
+  @@unique([id, boardId], map: "board_memberships_id_board_id_key")
+  @@unique([id, boardId, sessionId], map: "board_memberships_id_board_id_session_id_key")
+  @@index([boardId, role, revokedAt])
+  @@index([boardId, sessionId, revokedAt])
+  @@index([sessionId, revokedAt])
+  @@map("board_memberships")
+}
+
+model BoardInvitation {
+  id                 String              @id @default(uuid()) @db.Uuid
+  boardId            String              @map("board_id") @db.Uuid
+  tokenHash          String              @unique(map: "board_invitations_token_hash_key") @map("token_hash") @db.VarChar(43)
+  role               BoardMembershipRole
+  createdBySessionId String?             @map("created_by_session_id") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt          DateTime            @map("expires_at") @db.Timestamptz(3)
+  revokedAt          DateTime?           @map("revoked_at") @db.Timestamptz(3)
+  maxUses            Int                 @default(1) @map("max_uses")
+  useCount           Int                 @default(0) @map("use_count")
+
+  board            Board                  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdBySession AnonymousSession?      @relation("BoardInvitationCreator", fields: [createdBySessionId], references: [id], onDelete: SetNull)
+  redemptions      InvitationRedemption[]
+
+  @@unique([id, boardId], map: "board_invitations_id_board_id_key")
+  @@index([boardId, role, revokedAt, expiresAt])
+  @@index([createdBySessionId])
+  @@map("board_invitations")
+}
+
+model InvitationRedemption {
+  id           String   @id @default(uuid()) @db.Uuid
+  invitationId String   @map("invitation_id") @db.Uuid
+  membershipId String   @map("membership_id") @db.Uuid
+  boardId      String   @map("board_id") @db.Uuid
+  sessionId    String   @map("session_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  invitation BoardInvitation @relation(fields: [invitationId, boardId], references: [id, boardId], onDelete: Cascade)
+  membership BoardMembership @relation(fields: [membershipId, boardId, sessionId], references: [id, boardId, sessionId], onDelete: Cascade)
+
+  @@unique([invitationId, sessionId], map: "invitation_redemptions_invitation_id_session_id_key")
+  @@index([boardId])
+  @@index([membershipId])
+  @@index([sessionId])
+  @@map("invitation_redemptions")
+}
+
+enum ColumnType {
+  WENT_WELL
+  TO_IMPROVE
+  ACTIONS
+}
+
+enum BoardMembershipRole {
+  OWNER
+  PARTICIPANT
+}

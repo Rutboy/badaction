@@ -1,0 +1,184 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_DB: retro
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d retro"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/retro?schema=public
+      VISITOR_TOKEN_SECRET: ci_test_visitor_token_secret_1234567890abcdef
+      BOARD_ACCESS_SECRET: ci_test_board_access_secret_1234567890abcdef
+      RATE_LIMIT_KEY_SECRET: ci_test_rate_limit_key_secret_1234567890abcdef
+      APP_ORIGIN: http://localhost:3000
+      TRUSTED_PROXY_HOPS: "0"
+      BOARD_RETENTION_DAYS: "90"
+      BOARD_CARD_LIMIT: "500"
+      RETENTION_CLEANUP_ENABLED: "true"
+      RETENTION_CLEANUP_INTERVAL_MINUTES: "60"
+      RETENTION_CLEANUP_BATCH_SIZE: "1000"
+      NEXT_TELEMETRY_DISABLED: "1"
+      RUN_DATABASE_TESTS: "1"
+      TEST_DATABASE_IS_DISPOSABLE: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Set up npm
+        run: npm install --global npm@10.9.8
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Audit dependency vulnerabilities
+        run: npm run audit:dependencies
+
+      - name: Check dependency licenses
+        run: npm run check:licenses
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run static security checks
+        run: npm run security:check
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate
+
+      - name: Apply migrations to ephemeral database
+        run: npm run prisma:deploy
+
+      - name: Check migration status
+        run: npm run prisma:status
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check repository hygiene
+        run: npm run check:repo
+
+      - name: Check public documentation
+        run: npm run check:docs
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test without database skips
+        run: npm run test:database
+
+      - name: Test upgrade from the oldest supported schema fixture
+        run: npm run test:upgrade-integration
+
+      - name: Test retention cleanup against PostgreSQL
+        run: npm run test:cleanup-integration
+
+      - name: Run Playwright E2E and reproduce screenshots
+        run: |
+          npm run docs:screenshot
+          git diff --exit-code -- docs/assets/product-board.png docs/assets/product-board-mobile.png
+
+      - name: Build
+        run: npm run build
+
+      - name: Check standalone artifact
+        run: npm run check:standalone
+
+      - name: Smoke-test anonymous access
+        run: npm run test:access-smoke
+
+  container-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Validate base Compose configuration
+        run: docker compose --profile app config --quiet
+
+      - name: Validate production Compose configuration
+        env:
+          POSTGRES_USER: ci_postgres
+          POSTGRES_PASSWORD: ci_compose_admin_password_1234567890abcdef
+          POSTGRES_MIGRATOR_USER: ci_migrator
+          POSTGRES_MIGRATOR_PASSWORD: ci_compose_migrator_password_1234567890abcdef
+          POSTGRES_RUNTIME_USER: ci_runtime
+          POSTGRES_RUNTIME_PASSWORD: ci_compose_runtime_password_1234567890abcdef
+          DOCKER_MIGRATOR_DATABASE_URL: "postgresql://ci_migrator:ci_compose_migrator_password_1234567890abcdef@postgres:5432/retro?schema=public"
+          DOCKER_RUNTIME_DATABASE_URL: "postgresql://ci_runtime:ci_compose_runtime_password_1234567890abcdef@postgres:5432/retro?schema=public"
+          DOCKER_VISITOR_TOKEN_SECRET: ci_compose_visitor_secret_0000000000000001
+          DOCKER_BOARD_ACCESS_SECRET: ci_compose_board_secret_0000000000000002
+          DOCKER_RATE_LIMIT_KEY_SECRET: ci_compose_rate_limit_secret_0000000000000003
+          DOCKER_APP_ORIGIN: https://badaction.invalid
+        run: docker compose -f docker-compose.yml -f docker-compose.production.yml --profile app config --quiet
+
+      - name: Build non-root runner image
+        run: docker build --target runner --tag badaction-runner:ci .
+
+      - name: Verify runner contents
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' badaction-runner:ci)" = "node"
+          docker run --rm --entrypoint node badaction-runner:ci -e "const fs = require('node:fs'); for (const path of ['/app/server.js', '/app/LICENSE', '/app/THIRD_PARTY_NOTICES.md', '/app/third-party-licenses/manifest.json', '/app/scripts/run-server.mjs', '/app/src/lib/runtime/application-lifecycle-protocol.ts']) { if (!fs.existsSync(path)) throw new Error('missing runner artifact: ' + path); } for (const path of ['/app/node_modules/sharp', '/app/node_modules/@img/sharp-linux-x64', '/app/node_modules/@img/sharp-libvips-linux-x64']) { if (fs.existsSync(path)) throw new Error('excluded image package present: ' + path); }"
+
+      - name: Build non-root migrator image
+        run: docker build --target migrator --tag badaction-migrator:ci .
+
+      - name: Verify migrator contents
+        run: |
+          test "$(docker image inspect --format '{{.Config.User}}' badaction-migrator:ci)" = "node"
+          docker run --rm --entrypoint node badaction-migrator:ci -e "const crypto = require('node:crypto'); const fs = require('node:fs'); require.resolve('prisma/build/index.js'); const fallback = '/app/third-party-licenses/react-remove-scroll-bar.LICENSE'; for (const path of ['/app/LICENSE', '/app/THIRD_PARTY_NOTICES.md', fallback, '/app/scripts/run-container-migrations.mjs']) { if (!fs.existsSync(path)) throw new Error('missing migrator artifact: ' + path); } const hash = crypto.createHash('sha256').update(fs.readFileSync(fallback)).digest('hex'); if (hash !== 'a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84') throw new Error('unexpected react-remove-scroll-bar license hash: ' + hash); for (const path of ['/app/node_modules/sharp', '/app/node_modules/@img/sharp-linux-x64', '/app/node_modules/@img/sharp-libvips-linux-x64', '/app/node_modules/@playwright/test', '/app/node_modules/eslint', '/app/node_modules/typescript']) { if (fs.existsSync(path)) throw new Error('excluded migrator package present: ' + path); }"
+
+      - name: Run isolated Docker Compose smoke
+        env:
+          TEST_DATABASE_IS_DISPOSABLE: "1"
+          DOCKER_SMOKE_SKIP_BUILD: "1"
+          DOCKER_SMOKE_PRODUCTION: "1"
+          DOCKER_RUNNER_IMAGE: badaction-runner:ci
+          DOCKER_MIGRATOR_IMAGE: badaction-migrator:ci
+        run: npm run test:docker
