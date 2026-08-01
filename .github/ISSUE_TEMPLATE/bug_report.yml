@@ -1,0 +1,106 @@
+name: Bug report
+description: Report reproducible behavior that appears to be incorrect
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Badaction. Search existing issues before submitting.
+
+        **Do not report security vulnerabilities here.** Follow the private process in [SECURITY.md](https://github.com/Rutboy/badaction/security/policy).
+
+        Remove credentials, database connection strings, visitor cookies, user content, and raw invitation or owner-claim URLs from every field and attachment.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Provide a release identifier or full commit SHA.
+      placeholder: "Commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Docker Compose
+        - Docker image with external PostgreSQL
+        - Local Node.js development server
+        - Other self-hosted setup
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, architecture, Node.js/npm and PostgreSQL versions, browser if relevant, and reverse proxy or container runtime.
+      placeholder: |
+        OS and architecture:
+        Node.js and npm:
+        PostgreSQL:
+        Browser:
+        Proxy/container runtime:
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem description
+      description: Describe what is wrong and when it occurs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: List the smallest sequence of steps that consistently reproduces the problem.
+      placeholder: |
+        1. Start with ...
+        2. Open ...
+        3. Perform ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Paste the smallest relevant excerpt. Redact secrets, personal data, user content, internal hosts, and bearer credentials.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Include recent configuration or deployment changes and sanitized screenshots when relevant.
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and removed sensitive data from this report.
+          required: true
+        - label: This report does not disclose a security vulnerability.
+          required: true

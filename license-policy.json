@@ -1,0 +1,79 @@
+{
+  "projectLicense": "MIT",
+  "allowedLicenses": [
+    "0BSD",
+    "Apache-2.0",
+    "BlueOak-1.0.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "Python-2.0"
+  ],
+  "reviewedExceptions": [
+    {
+      "packages": ["caniuse-lite"],
+      "licenses": ["CC-BY-4.0"],
+      "reason": "Browser compatibility data shipped transitively in the Next.js standalone artifact; CC BY attribution is retained in THIRD_PARTY_NOTICES.md."
+    },
+    {
+      "packages": ["axe-core"],
+      "licenses": ["MPL-2.0"],
+      "devOnly": true,
+      "reason": "Development-only accessibility data reached through eslint-config-next; it is not shipped by the application runtime."
+    },
+    {
+      "packages": [
+        "lightningcss",
+        "lightningcss-android-arm64",
+        "lightningcss-darwin-arm64",
+        "lightningcss-darwin-x64",
+        "lightningcss-freebsd-x64",
+        "lightningcss-linux-arm-gnueabihf",
+        "lightningcss-linux-arm64-gnu",
+        "lightningcss-linux-arm64-musl",
+        "lightningcss-linux-x64-gnu",
+        "lightningcss-linux-x64-musl",
+        "lightningcss-win32-arm64-msvc",
+        "lightningcss-win32-x64-msvc"
+      ],
+      "licenses": ["MPL-2.0"],
+      "devOnly": true,
+      "reason": "Development/build-only CSS tooling reached through Tailwind; MPL-covered source is not copied into application source."
+    },
+    {
+      "packages": [
+        "@img/sharp-libvips-darwin-arm64",
+        "@img/sharp-libvips-darwin-x64",
+        "@img/sharp-libvips-linux-arm",
+        "@img/sharp-libvips-linux-arm64",
+        "@img/sharp-libvips-linux-ppc64",
+        "@img/sharp-libvips-linux-riscv64",
+        "@img/sharp-libvips-linux-s390x",
+        "@img/sharp-libvips-linux-x64",
+        "@img/sharp-libvips-linuxmusl-arm64",
+        "@img/sharp-libvips-linuxmusl-x64"
+      ],
+      "licenses": ["LGPL-3.0-or-later"],
+      "optionalOnly": true,
+      "reason": "Lockfile-only optional platform artifacts from Next.js/sharp; release checks exclude them from the standalone runner and the migrator prunes optional packages."
+    },
+    {
+      "packages": ["@img/sharp-wasm32"],
+      "licenses": ["Apache-2.0 AND LGPL-3.0-or-later AND MIT"],
+      "optionalOnly": true,
+      "reason": "Lockfile-only optional sharp WebAssembly artifact; release checks exclude it from the runner and migrator artifacts."
+    },
+    {
+      "packages": [
+        "@img/sharp-win32-arm64",
+        "@img/sharp-win32-ia32",
+        "@img/sharp-win32-x64"
+      ],
+      "licenses": ["Apache-2.0 AND LGPL-3.0-or-later"],
+      "optionalOnly": true,
+      "reason": "Lockfile-only optional sharp Windows artifacts; release checks exclude them from the runner and migrator artifacts."
+    }
+  ]
+}

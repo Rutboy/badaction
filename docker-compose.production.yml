@@ -1,0 +1,26 @@
+services:
+  postgres:
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-retro}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in the production environment file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production environment file}
+      POSTGRES_MIGRATOR_USER: ${POSTGRES_MIGRATOR_USER:?Set POSTGRES_MIGRATOR_USER in the production environment file}
+      POSTGRES_MIGRATOR_PASSWORD: ${POSTGRES_MIGRATOR_PASSWORD:?Set POSTGRES_MIGRATOR_PASSWORD in the production environment file}
+      POSTGRES_RUNTIME_USER: ${POSTGRES_RUNTIME_USER:?Set POSTGRES_RUNTIME_USER in the production environment file}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:?Set POSTGRES_RUNTIME_PASSWORD in the production environment file}
+    volumes:
+      - ./deploy/init-production-db.sh:/docker-entrypoint-initdb.d/10-badaction-roles.sh:ro
+
+  migrate:
+    environment:
+      DATABASE_URL: ${DOCKER_MIGRATOR_DATABASE_URL:?Set DOCKER_MIGRATOR_DATABASE_URL in the production environment file}
+      DATABASE_RUNTIME_ROLE: ${POSTGRES_RUNTIME_USER:?Set POSTGRES_RUNTIME_USER in the production environment file}
+
+  app:
+    environment:
+      DATABASE_URL: ${DOCKER_RUNTIME_DATABASE_URL:?Set DOCKER_RUNTIME_DATABASE_URL in the production environment file}
+      VISITOR_TOKEN_SECRET: ${DOCKER_VISITOR_TOKEN_SECRET:?Set DOCKER_VISITOR_TOKEN_SECRET in the production environment file}
+      BOARD_ACCESS_SECRET: ${DOCKER_BOARD_ACCESS_SECRET:?Set DOCKER_BOARD_ACCESS_SECRET in the production environment file}
+      RATE_LIMIT_KEY_SECRET: ${DOCKER_RATE_LIMIT_KEY_SECRET:?Set DOCKER_RATE_LIMIT_KEY_SECRET in the production environment file}
+      APP_ORIGIN: ${DOCKER_APP_ORIGIN:?Set DOCKER_APP_ORIGIN in the production environment file}

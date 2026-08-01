@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "description": "Frozen pre-dynamic-columns schema baseline",
+  "migrations": [
+    {
+      "name": "20260405183000_init",
+      "sha256": "9f53ee842ffb826a6e01648846f16774d8bb09470f767808aef7984e88c342d1"
+    },
+    {
+      "name": "20260405220500_align_schema_requirements",
+      "sha256": "dd2c1f7aea9085a71a45ae5ebbae8062d156e5a9c5f4ad2bf1e5e202a63aaeac"
+    },
+    {
+      "name": "20260731120000_harden_data_invariants",
+      "sha256": "f444248309b100a3b34966148db8899c51f112d31ad5fd0d15a04469bbfaf0e5"
+    },
+    {
+      "name": "20260731170000_enforce_vote_quota_slots",
+      "sha256": "956b17a438bf36adca89405ba867b2456a289f0fe3f47f43619bee26342d732d"
+    },
+    {
+      "name": "20260731190000_add_anonymous_board_access",
+      "sha256": "7fa5d40bb4334ff205e5452f22b8ad8092381ca764de05517ebcffdbb0ba7c0c"
+    },
+    {
+      "name": "20260731191000_enforce_single_use_board_invitations",
+      "sha256": "ddc5b566335f992e1c7f2ed23134c1d25d49645c8716c75f9fa166baf9bf3fa6"
+    },
+    {
+      "name": "20260731192000_preserve_membership_history",
+      "sha256": "97b6e6679da1308688780a1016bf824e73557705fadab9ec61ee1467f177c1ea"
+    },
+    {
+      "name": "20260731193000_preserve_invitation_creator_tombstones",
+      "sha256": "effadfc7d6afe4d48148ea46bd3693a2bd09a285ecc56ca1255e1da123fb6261"
+    },
+    {
+      "name": "20260731200000_index_redemptions_for_retention",
+      "sha256": "09cf3be028b40711a9bd120edab3a2dd68033d797a47777c412b14c27879d527"
+    }
+  ]
+}
