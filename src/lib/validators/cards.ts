@@ -15,7 +15,7 @@ export const createCardSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["owner"],
-          message: "Поле owner обязательно для ACTIONS",
+          message: "The owner field is required for ACTIONS.",
         });
       }
       return;
@@ -25,7 +25,7 @@ export const createCardSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["owner"],
-        message: "Поле owner разрешено только для ACTIONS",
+        message: "The owner field is only allowed for ACTIONS.",
       });
     }
   });

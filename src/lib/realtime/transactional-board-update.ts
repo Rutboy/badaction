@@ -19,7 +19,7 @@ export const incrementBoardRevision = async (
   `);
   const revision = rows[0]?.revision;
   if (revision === undefined) {
-    throw new ApiError(404, "BOARD_NOT_FOUND", "Доска не найдена");
+    throw new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
   }
 
   const notification = serializeBoardMutationEvent({

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BoardPageClient } from "@/components/board-page-client";
+import { getServerI18n } from "@/i18n/server";
 import { getExistingVisitorToken } from "@/lib/cookies/visitor-token";
 import { ApiError } from "@/lib/errors/api-error";
 import { DATABASE_UNAVAILABLE_CODE, normalizePrismaError } from "@/lib/errors/prisma";
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
 };
 
 export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
+  const { t } = await getServerI18n();
   const { boardId } = await params;
   const parsedBoardId = uuidParamSchema.safeParse(boardId);
 
@@ -57,17 +59,14 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
       return (
         <main className="mx-auto flex min-h-[100dvh] w-full max-w-2xl items-center px-5 py-12 sm:px-8">
           <section className="w-full border-l-2 border-amber-500 pl-5">
-            <p className="text-sm font-medium text-amber-800">Сервис недоступен</p>
-            <h1 className="mt-2 text-2xl font-semibold">Не удалось подключиться к PostgreSQL</h1>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              Доска не может загрузиться, потому что приложение не видит базу данных по адресу
-              {" "}
-              <code>localhost:5432</code>.
+            <p className="text-sm font-medium text-amber-800">
+              {t("serviceUnavailable.eyebrow")}
             </p>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Запустите локальную БД командой <code>npm run db:start</code>, затем примените миграции
-              {" "}
-              <code>npm run prisma:deploy</code>.
+            <h1 className="mt-2 text-2xl font-semibold">
+              {t("serviceUnavailable.title")}
+            </h1>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              {t("serviceUnavailable.description")}
             </p>
           </section>
         </main>

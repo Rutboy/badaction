@@ -2,31 +2,33 @@
 
 import { Loader2 } from "lucide-react";
 import type { BoardConnectionStatus } from "@/components/use-board-realtime";
+import type { MessageKey } from "@/i18n/messages";
+import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 
 const CONNECTION_STATUS: Record<
   BoardConnectionStatus,
-  { label: string; dot: string; hint: string }
+  { labelKey: MessageKey; dot: string; hintKey: MessageKey }
 > = {
   connecting: {
-    label: "Подключение…",
+    labelKey: "boardShell.connection.connectingLabel",
     dot: "bg-amber-500",
-    hint: "Подключаем realtime-обновления.",
+    hintKey: "boardShell.connection.connectingHint",
   },
   online: {
-    label: "Онлайн",
+    labelKey: "boardShell.connection.onlineLabel",
     dot: "bg-emerald-600",
-    hint: "Изменения сохраняются автоматически.",
+    hintKey: "boardShell.connection.onlineHint",
   },
   reconnecting: {
-    label: "Переподключение…",
+    labelKey: "boardShell.connection.reconnectingLabel",
     dot: "bg-amber-500",
-    hint: "Восстанавливаем realtime-соединение.",
+    hintKey: "boardShell.connection.reconnectingHint",
   },
   polling: {
-    label: "Резервное обновление",
+    labelKey: "boardShell.connection.pollingLabel",
     dot: "bg-zinc-500",
-    hint: "Доска периодически сверяется с сервером.",
+    hintKey: "boardShell.connection.pollingHint",
   },
 };
 
@@ -37,7 +39,13 @@ export const ConnectionIndicator = ({
   status: BoardConnectionStatus;
   loading: boolean;
 }) => {
-  const connection = CONNECTION_STATUS[status];
+  const { t } = useI18n();
+  const connectionConfig = CONNECTION_STATUS[status];
+  const connection = {
+    ...connectionConfig,
+    label: t(connectionConfig.labelKey),
+    hint: t(connectionConfig.hintKey),
+  };
   const compact = status === "online" && !loading;
 
   return (
@@ -45,7 +53,9 @@ export const ConnectionIndicator = ({
       <div
         role="status"
         tabIndex={0}
-        aria-label={`Состояние синхронизации: ${connection.label}`}
+        aria-label={t("boardShell.connection.ariaLabel", {
+          status: connection.label,
+        })}
         aria-describedby="board-sync-tooltip"
         aria-live="polite"
         className={cn(

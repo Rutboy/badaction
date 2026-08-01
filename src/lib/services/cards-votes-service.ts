@@ -42,9 +42,9 @@ const CARD_SELECT = {
 
 type CardRow = Prisma.CardGetPayload<{ select: typeof CARD_SELECT }>;
 
-const cardNotFound = () => new ApiError(404, "CARD_NOT_FOUND", "Карточка не найдена.");
-const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Колонка не найдена.");
-const groupNotFound = () => new ApiError(404, "GROUP_NOT_FOUND", "Группа не найдена.");
+const cardNotFound = () => new ApiError(404, "CARD_NOT_FOUND", "Card not found.");
+const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Column not found.");
+const groupNotFound = () => new ApiError(404, "GROUP_NOT_FOUND", "Group not found.");
 
 const requireItemPlacementResources = (
   items: readonly { id: string; kind: "CARD" | "GROUP" }[],
@@ -87,7 +87,7 @@ const assertCardOwner = (context: BoardMutationContext, card: CardRow): void => 
     throw new ApiError(
       403,
       "CARD_OWNER_REQUIRED",
-      "Можно изменять только карточки, созданные вашим текущим доступом.",
+      "You can only change cards created with your current access.",
     );
   }
 };
@@ -156,7 +156,7 @@ export const createTargetCard = async (
     throw new ApiError(
       422,
       "BOARD_CARD_LIMIT_REACHED",
-      `На доске уже достигнут лимит в ${cardLimit} карточек.`,
+      `This board has reached its limit of ${cardLimit} cards.`,
       { limit: cardLimit },
     );
   }
@@ -242,7 +242,7 @@ export const moveTargetCard = async (
     throw new ApiError(
       409,
       "CARD_GROUPED",
-      "Сначала распустите группу, чтобы переместить отдельную карточку.",
+      "Ungroup the card before moving it on its own.",
     );
   }
   const targetColumn = await tx.boardColumn.findFirst({
@@ -412,7 +412,7 @@ const voteForCardInTransaction = async (
         throw new ApiError(
           403,
           "LIKES_NOT_ALLOWED",
-          "Лайки для action items запрещены.",
+          "Voting is not available for action items.",
         );
       }
     }
@@ -429,7 +429,7 @@ const voteForCardInTransaction = async (
     throw new ApiError(
       422,
       "COLUMN_VOTE_LIMIT_REACHED",
-      "В этой колонке голосование недоступно.",
+      "Voting is not available in this column.",
       { columnId: card.columnId, limit: 0 },
     );
   }
@@ -439,7 +439,7 @@ const voteForCardInTransaction = async (
       throw new ApiError(
         409,
         "LIKE_ALREADY_EXISTS",
-        "Вы уже лайкнули эту карточку",
+        "You have already voted for this card.",
       );
     }
     return getVoteState(
@@ -468,7 +468,7 @@ const voteForCardInTransaction = async (
     throw new ApiError(
       422,
       "COLUMN_VOTE_LIMIT_REACHED",
-      "В этой колонке уже использованы все доступные голоса.",
+      "No votes remain in this column.",
       { columnId: card.columnId, limit: column.voteLimit },
     );
   }
@@ -556,7 +556,7 @@ export const removeVoteFromCard = async (
     throw new ApiError(
       422,
       "COLUMN_VOTE_LIMIT_REACHED",
-      "В этой колонке голосование недоступно.",
+      "Voting is not available in this column.",
       { columnId: card.columnId, limit: 0 },
     );
   }

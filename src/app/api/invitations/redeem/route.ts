@@ -1,6 +1,7 @@
 import { redeemBoardInvitation } from "@/lib/access/acl-service";
 import { getOrSetVisitorToken } from "@/lib/cookies/visitor-token";
 import { ApiError, toErrorResponse } from "@/lib/errors/api-error";
+import { getServerI18n } from "@/i18n/server";
 import {
   getTrustedProxyRateLimitIdentity,
   getVisitorRateLimitIdentity,
@@ -22,15 +23,17 @@ export async function POST(request: Request) {
 
     const parsed = redeemInvitationSchema.safeParse(await readJsonBody(request));
     if (!parsed.success) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Ошибка валидации приглашения", {
+      throw new ApiError(400, "VALIDATION_ERROR", "Invitation validation failed.", {
         issues: parsed.error.issues,
       });
     }
 
+    const { t } = await getServerI18n();
     const membership = await redeemBoardInvitation(
       parsed.data.token,
       visitorPayload,
-      parsed.data.displayName ?? "Участник",
+      parsed.data.displayName ?? t("memberDefaults.participant"),
+      { ownerDisplayName: t("memberDefaults.owner") },
     );
     return Response.json(membership, {
       headers: { "Cache-Control": "no-store" },

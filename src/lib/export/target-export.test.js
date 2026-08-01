@@ -202,47 +202,121 @@ test("CSV neutralizes all contract formula and C0 prefixes", () => {
   assert.equal(neutralizeTargetCsvFormula("Обычный текст 🚀"), "Обычный текст 🚀");
 });
 
-test("Markdown matches the target template and safely escapes user content", () => {
-  const markdown = serializeTargetMarkdownExport(exportData);
+test("Markdown localizes generated chrome and preserves escaped user content", () => {
+  const dateOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  };
+  const cases = {
+    en: {
+      createdAt: "Created",
+      expiresAt: "Expires",
+      cards: "Cards: yes",
+      voting: "Voting: no",
+      readOnly: "Read-only: no",
+      voteLimit: "vote limit",
+      author: "Author",
+      votes: "Votes",
+      group: "Group",
+      primary: "primary",
+      noCards: "No cards.",
+      actionItems: "Action items",
+      assignee: "Assignee",
+    },
+    ru: {
+      createdAt: "Создана",
+      expiresAt: "Истекает",
+      cards: "Карточки: да",
+      voting: "Голосование: нет",
+      readOnly: "Только чтение: нет",
+      voteLimit: "лимит голосов",
+      author: "Автор",
+      votes: "Голоса",
+      group: "Группа",
+      primary: "основная",
+      noCards: "Нет карточек.",
+      actionItems: "Решения",
+      assignee: "Ответственный",
+    },
+    es: {
+      createdAt: "Creado",
+      expiresAt: "Caduca",
+      cards: "Tarjetas: sí",
+      voting: "Votación: no",
+      readOnly: "Solo lectura: no",
+      voteLimit: "límite de votos",
+      author: "Autor",
+      votes: "Votos",
+      group: "Grupo",
+      primary: "principal",
+      noCards: "No hay tarjetas.",
+      actionItems: "Acciones",
+      assignee: "Responsable",
+    },
+  };
 
-  assert.equal(
-    markdown,
-    `# \\=Ретро &amp; &lt;команда&gt;
+  for (const [locale, labels] of Object.entries(cases)) {
+    const markdown = serializeTargetMarkdownExport(exportData, locale);
+    const dateFormatter = new Intl.DateTimeFormat(locale, dateOptions);
 
-- Создана: 2026-07-31T10:00:00.000Z
-- Истекает: 2026-10-29T10:00:00.000Z
-- Карточки: включены
-- Голосование: выключено
-- Только чтение: нет
+    assert.ok(
+      markdown.includes(
+        `- ${labels.createdAt}: ${dateFormatter.format(new Date(exportData.board.createdAt))}`,
+      ),
+      locale,
+    );
+    assert.ok(
+      markdown.includes(
+        `- ${labels.expiresAt}: ${dateFormatter.format(new Date(exportData.board.expiresAt))}`,
+      ),
+      locale,
+    );
+    assert.ok(markdown.includes(`- ${labels.cards}`), locale);
+    assert.ok(markdown.includes(`- ${labels.voting}`), locale);
+    assert.ok(markdown.includes(`- ${labels.readOnly}`), locale);
+    assert.ok(
+      markdown.includes(`## Уже \\*хорошо\\* (${labels.voteLimit}: 3)`),
+      locale,
+    );
+    assert.ok(markdown.includes(`- ${labels.author}: —`), locale);
+    assert.ok(markdown.includes(`- ${labels.votes}: 2`), locale);
+    assert.ok(markdown.includes(`2. ${labels.group}: API\\_\\[ядро\\]`), locale);
+    assert.ok(markdown.includes(`— ${labels.primary}`), locale);
+    assert.ok(markdown.includes(`_${labels.noCards}_`), locale);
+    assert.ok(markdown.includes(`## ${labels.actionItems}`), locale);
+    assert.ok(
+      markdown.includes(`Обновить DoD<br>до пятницы — ${labels.assignee}: @Оля`),
+      locale,
+    );
 
-## Уже \\*хорошо\\* (лимит голосов: 3)
+    for (const userContent of [
+      "# \\=Ретро &amp; &lt;команда&gt;",
+      "Стабильный \"релиз\"<br>🚀",
+      "\\=HYPERLINK\\(\"x\"\\)",
+      "HTML &lt;script&gt;alert\\(1\\)&lt;/script&gt;",
+      "Иван &amp; Ко",
+      "Закрыть &lt;script&gt;",
+    ]) {
+      assert.ok(markdown.includes(userContent), `${locale}: ${userContent}`);
+    }
 
-1. Стабильный "релиз"<br>🚀
-   - Автор: —
-   - Голоса: 2
-2. Группа: API\\_\\[ядро\\]
-   - Голоса: 3
-   1. \\=HYPERLINK\\("x"\\) — основная
-      - Автор: \\+Оля
-      - Голоса: 1
-   2. HTML &lt;script&gt;alert\\(1\\)&lt;/script&gt;
-      - Автор: Иван &amp; Ко
-      - Голоса: 2
+    assert.equal(markdown.endsWith("\n"), true, locale);
+    assert.equal(markdown.endsWith("\n\n"), false, locale);
+    assert.equal(markdown.includes("<script>"), false, locale);
+    assert.equal(markdown.includes("private-"), false, locale);
+  }
+});
 
-## Следует улучшить (лимит голосов: 0)
+test("Markdown uses English for an unsupported locale", () => {
+  const markdown = serializeTargetMarkdownExport(exportData, "de-DE");
 
-_Нет карточек._
-
-## Action items
-
-- [ ] Обновить DoD<br>до пятницы — Ответственный: @Оля
-- [x] Закрыть &lt;script&gt; — Ответственный: —
-`,
-  );
-  assert.equal(markdown.endsWith("\n"), true);
-  assert.equal(markdown.endsWith("\n\n"), false);
-  assert.equal(markdown.includes("<script>"), false);
-  assert.equal(markdown.includes("private-"), false);
+  assert.ok(markdown.includes("- Created:"));
+  assert.ok(markdown.includes("## Action items"));
 });
 
 test("Markdown escaping normalizes internal line endings to generated safe breaks", () => {

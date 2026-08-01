@@ -23,6 +23,7 @@ test("maps unavailable database error to ApiError 503", () => {
   assert.ok(normalized instanceof ApiError);
   assert.equal(normalized.status, 503);
   assert.equal(normalized.code, "DATABASE_UNAVAILABLE");
+  assert.equal(normalized.message, "The database is unavailable. Try again later.");
 });
 
 test("leaves unrelated errors unchanged", () => {

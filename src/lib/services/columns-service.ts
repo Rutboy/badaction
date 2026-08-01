@@ -51,7 +51,7 @@ export type DeleteColumnPayload =
       expectedRevision: string;
     };
 
-const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Колонка не найдена.");
+const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Column not found.");
 
 const requireColumnPlacementResources = (
   columns: readonly ColumnRow[],
@@ -161,7 +161,7 @@ export const createBoardColumn = async (
     throw new ApiError(
       422,
       "BOARD_COLUMN_LIMIT_REACHED",
-      `На доске может быть не более ${MAX_BOARD_COLUMNS} колонок.`,
+      `A board can contain at most ${MAX_BOARD_COLUMNS} columns.`,
       { limit: MAX_BOARD_COLUMNS },
     );
   }
@@ -233,7 +233,7 @@ export const updateBoardColumn = async (
       throw new ApiError(
         409,
         "VOTE_LIMIT_CONFLICT",
-        "Новый лимит меньше уже использованного числа голосов.",
+        "The new limit is below the number of votes already used.",
         { columnId, requestedLimit: voteLimit },
       );
     }
@@ -369,14 +369,14 @@ export const deleteBoardColumn = async (
     throw new ApiError(
       409,
       "LAST_COLUMN_DELETE_FORBIDDEN",
-      "Нельзя удалить последнюю колонку доски.",
+      "The final board column cannot be deleted.",
     );
   }
 
   const cardCount = await tx.card.count({ where: { boardId, columnId } });
   const strategy = "strategy" in payload ? payload.strategy : undefined;
   if (cardCount > 0 && strategy === undefined) {
-    throw new ApiError(409, "COLUMN_NOT_EMPTY", "Колонка содержит карточки.");
+    throw new ApiError(409, "COLUMN_NOT_EMPTY", "The column contains cards.");
   }
   if (cardCount > 0) {
     requireCardsEnabled(board);

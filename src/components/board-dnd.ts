@@ -24,7 +24,7 @@ export type BoardDndMove =
 
 const assertIdSegment = (value: string, name: string): void => {
   if (value.length === 0 || value.includes(":")) {
-    throw new Error(`${name} должен быть непустым DnD ID без двоеточий`);
+    throw new Error(`${name} must be a non-empty DnD ID without colons`);
   }
 };
 
@@ -83,7 +83,7 @@ export const parseBoardDndId = (value: string | number): BoardDndId | null => {
 
 const assertFinalIndex = (index: number, length: number): void => {
   if (!Number.isInteger(index) || index < 0 || index >= length) {
-    throw new RangeError("Перемещённый элемент отсутствует в итоговой последовательности");
+    throw new RangeError("The moved item is missing from the final sequence");
   }
 };
 
@@ -145,7 +145,7 @@ export const buildActionItemPlacement = (
 
 const insertAt = <T>(items: readonly T[], item: T, targetIndex: number): T[] => {
   if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex > items.length) {
-    throw new RangeError("targetIndex выходит за границы итоговой последовательности");
+    throw new RangeError("targetIndex is outside the final sequence bounds");
   }
   return [
     ...items.slice(0, targetIndex),
@@ -161,7 +161,7 @@ const moveColumn = (
 ): BoardSnapshot => {
   const column = board.columns.find((candidate) => candidate.id === columnId);
   if (!column) {
-    throw new Error("Перемещаемая колонка не найдена");
+    throw new Error("The moved column was not found");
   }
   const remaining = board.columns.filter((candidate) => candidate.id !== columnId);
   return {
@@ -179,16 +179,16 @@ const moveItem = (
   const sourceColumn = board.columns.find((column) =>
     column.items.some((item) => sameItem(item, itemRef)));
   if (!sourceColumn) {
-    throw new Error("Перемещаемый элемент доски не найден");
+    throw new Error("The moved board item was not found");
   }
   const targetColumn = board.columns.find((column) => column.id === targetColumnId);
   if (!targetColumn) {
-    throw new Error("Целевая колонка не найдена");
+    throw new Error("The target column was not found");
   }
 
   const item = sourceColumn.items.find((candidate) => sameItem(candidate, itemRef));
   if (!item) {
-    throw new Error("Перемещаемый элемент доски не найден");
+    throw new Error("The moved board item was not found");
   }
   const movedItem = item.kind === "CARD"
     ? { ...item, columnId: targetColumnId }
@@ -239,7 +239,7 @@ const moveActionItem = (
 ): BoardSnapshot => {
   const actionItem = board.actionItems.find((item) => item.id === actionItemId);
   if (!actionItem) {
-    throw new Error("Перемещаемое решение не найдено");
+    throw new Error("The moved action item was not found");
   }
   const remaining = board.actionItems.filter((item) => item.id !== actionItemId);
   return {

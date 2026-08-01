@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/i18n/provider";
+import type { Translate } from "@/i18n/translate";
 import type {
   ActionItemView,
   BoardItem,
@@ -70,36 +72,35 @@ const COLUMN_STYLES = [
 const itemRef = (item: BoardItem) =>
   ({ kind: item.kind, id: item.id }) as const;
 
-const itemLabel = (item: BoardItem): string =>
+const itemLabel = (item: BoardItem, t: Translate): string =>
   item.kind === "CARD"
-    ? `Карточка «${item.text.slice(0, 80)}»`
-    : `Группа «${item.title ?? "Без названия"}»`;
+    ? t("content.card.itemLabel", { text: item.text.slice(0, 80) })
+    : t("content.group.itemLabel", {
+        title: item.title ?? t("content.group.unnamed"),
+      });
 
-const itemMoveLabel = (item: BoardItem): string =>
+const itemMoveLabel = (item: BoardItem, t: Translate): string =>
   item.kind === "CARD"
-    ? `Переместить карточку «${item.text.slice(0, 80)}»`
-    : `Переместить группу «${item.title ?? "Без названия"}»`;
+    ? t("content.card.moveLabel", { text: item.text.slice(0, 80) })
+    : t("content.group.moveLabel", {
+        title: item.title ?? t("content.group.unnamed"),
+      });
 
-const actionLabel = (item: ActionItemView): string =>
-  `Решение «${item.text.slice(0, 80)}»`;
+const actionLabel = (item: ActionItemView, t: Translate): string =>
+  t("content.action.itemLabel", { text: item.text.slice(0, 80) });
 
-const formatAbsoluteDate = (value: string): string =>
-  new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-
-const formatRelativeDate = (value: string): string => {
+const relativeDateParts = (
+  value: string,
+): { value: number; unit: Intl.RelativeTimeFormatUnit } => {
   const difference = new Date(value).getTime() - Date.now();
-  const formatter = new Intl.RelativeTimeFormat("ru-RU", { numeric: "auto" });
   const absoluteDifference = Math.abs(difference);
   if (absoluteDifference >= 86_400_000) {
-    return formatter.format(Math.round(difference / 86_400_000), "day");
+    return { value: Math.round(difference / 86_400_000), unit: "day" };
   }
   if (absoluteDifference >= 3_600_000) {
-    return formatter.format(Math.round(difference / 3_600_000), "hour");
+    return { value: Math.round(difference / 3_600_000), unit: "hour" };
   }
-  return formatter.format(Math.round(difference / 60_000), "minute");
+  return { value: Math.round(difference / 60_000), unit: "minute" };
 };
 
 export type BoardColumnsProps = {
@@ -134,47 +135,51 @@ export const BoardColumns = ({
   loadMoreErrors,
   disabled,
   onManageColumn,
-}: BoardColumnsProps) => (
-  <section
-    aria-labelledby="board-columns-heading"
-    className="flex min-h-0 min-w-0 flex-1 flex-col"
-  >
-    <h2 id="board-columns-heading" className="sr-only">
-      Колонки доски
-    </h2>
-    <ol
-      data-testid="board-canvas"
-      className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pt-3 pr-[calc(1rem+env(safe-area-inset-right))] pb-[calc(0.75rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] [scroll-padding-inline-end:calc(1rem+env(safe-area-inset-right))] [scroll-padding-inline-start:calc(1rem+env(safe-area-inset-left))] [scrollbar-gutter:stable] sm:pt-4 sm:pr-[calc(1.5rem+env(safe-area-inset-right))] sm:pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pl-[calc(1.5rem+env(safe-area-inset-left))] sm:[scroll-padding-inline-end:calc(1.5rem+env(safe-area-inset-right))] sm:[scroll-padding-inline-start:calc(1.5rem+env(safe-area-inset-left))]"
+}: BoardColumnsProps) => {
+  const { t } = useI18n();
+
+  return (
+    <section
+      aria-labelledby="board-columns-heading"
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
     >
-      {board.columns.map((column, index) => (
-        <SortableColumn
-          key={column.id}
+      <h2 id="board-columns-heading" className="sr-only">
+        {t("content.column.boardHeading")}
+      </h2>
+      <ol
+        data-testid="board-canvas"
+        className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pt-3 pr-[calc(1rem+env(safe-area-inset-right))] pb-[calc(0.75rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] [scroll-padding-inline-end:calc(1rem+env(safe-area-inset-right))] [scroll-padding-inline-start:calc(1rem+env(safe-area-inset-left))] [scrollbar-gutter:stable] sm:pt-4 sm:pr-[calc(1.5rem+env(safe-area-inset-right))] sm:pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pl-[calc(1.5rem+env(safe-area-inset-left))] sm:[scroll-padding-inline-end:calc(1.5rem+env(safe-area-inset-right))] sm:[scroll-padding-inline-start:calc(1.5rem+env(safe-area-inset-left))]"
+      >
+        {board.columns.map((column, index) => (
+          <SortableColumn
+            key={column.id}
+            boardId={boardId}
+            board={board}
+            column={column}
+            index={index}
+            toneIndex={index}
+            onCreateCard={onCreateCard}
+            onToggleVote={onToggleVote}
+            onLoadMore={onLoadMore}
+            onChanged={onChanged}
+            loadingKey={loadingKey}
+            actionError={actionError}
+            loadingMore={loadingMore[column.id] ?? false}
+            loadMoreError={loadMoreErrors[column.id] ?? null}
+            disabled={disabled}
+            onManageColumn={onManageColumn}
+          />
+        ))}
+        <ActionItemsColumn
           boardId={boardId}
           board={board}
-          column={column}
-          index={index}
-          toneIndex={index}
-          onCreateCard={onCreateCard}
-          onToggleVote={onToggleVote}
-          onLoadMore={onLoadMore}
           onChanged={onChanged}
-          loadingKey={loadingKey}
-          actionError={actionError}
-          loadingMore={loadingMore[column.id] ?? false}
-          loadMoreError={loadMoreErrors[column.id] ?? null}
           disabled={disabled}
-          onManageColumn={onManageColumn}
         />
-      ))}
-      <ActionItemsColumn
-        boardId={boardId}
-        board={board}
-        onChanged={onChanged}
-        disabled={disabled}
-      />
-    </ol>
-  </section>
-);
+      </ol>
+    </section>
+  );
+};
 
 const SortableColumn = ({
   boardId,
@@ -213,6 +218,7 @@ const SortableColumn = ({
   disabled: boolean;
   onManageColumn: (columnId: string) => void;
 }) => {
+  const { formatNumber, t } = useI18n();
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const columnMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const { ref, targetRef, handleRef, isDragSource, isDropTarget } = useSortable(
@@ -222,7 +228,7 @@ const SortableColumn = ({
       group: COLUMN_GROUP,
       type: DND_TYPES.column,
       accept: DND_TYPES.column,
-      data: { label: `Колонка «${column.title}»` },
+      data: { label: t("content.column.region", { column: column.title }) },
       disabled: {
         draggable: disabled || !board.capabilities.canManageColumns,
         droppable: disabled || !board.capabilities.canManageColumns,
@@ -233,11 +239,12 @@ const SortableColumn = ({
   const topLevelCards = column.items.filter(
     (item): item is CardView => item.kind === "CARD",
   );
+  const remainingVotes = board.remainingVotesByColumn[column.id] ?? 0;
 
   return (
     <li
       ref={board.capabilities.canManageColumns ? ref : targetRef}
-      aria-label={`Колонка «${column.title}»`}
+      aria-label={t("content.column.region", { column: column.title })}
       className={cn(
         "h-full min-h-0 w-[calc(100vw-3rem-env(safe-area-inset-left)-env(safe-area-inset-right))] max-w-[23.75rem] shrink-0 snap-start transition-opacity sm:w-[21rem] lg:w-[min(23.75rem,calc((100vw-6rem)/3))]",
         isDragSource && "opacity-35",
@@ -270,26 +277,36 @@ const SortableColumn = ({
                 </h3>
                 <span
                   className="inline-flex min-w-6 shrink-0 justify-center rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground"
-                  aria-label={`${column.totalCount} элементов`}
+                  aria-label={t("content.column.count", {
+                    count: column.totalCount,
+                    formattedCount: formatNumber(column.totalCount),
+                  })}
                 >
-                  {column.totalCount}
+                  {formatNumber(column.totalCount)}
                 </span>
               </div>
               <p
                 className="mt-1 truncate text-xs text-muted-foreground"
                 aria-label={
                   !board.capabilities.canVote
-                    ? "Голосование недоступно"
+                    ? t("content.vote.unavailable")
                     : column.voteLimit === 0
-                      ? "Голосование выключено"
-                      : `${board.remainingVotesByColumn[column.id] ?? 0} из ${column.voteLimit} голосов осталось`
+                      ? t("content.vote.disabled")
+                      : t("content.vote.remaining", {
+                          count: remainingVotes,
+                          remaining: formatNumber(remainingVotes),
+                          limit: formatNumber(column.voteLimit),
+                        })
                 }
               >
                 {!board.capabilities.canVote
-                  ? "Голосование недоступно"
+                  ? t("content.vote.unavailable")
                   : column.voteLimit === 0
-                    ? "Голосование выключено"
-                    : `${board.remainingVotesByColumn[column.id] ?? 0} из ${column.voteLimit} голосов`}
+                    ? t("content.vote.disabled")
+                    : t("content.vote.summary", {
+                        remaining: formatNumber(remainingVotes),
+                        limit: formatNumber(column.voteLimit),
+                      })}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
@@ -303,7 +320,9 @@ const SortableColumn = ({
                       variant="ghost"
                       size="icon"
                       className="size-9 text-muted-foreground max-sm:size-11"
-                      aria-label={`Действия с колонкой «${column.title}»`}
+                      aria-label={t("content.column.actions", {
+                        column: column.title,
+                      })}
                       disabled={disabled}
                     >
                       <Ellipsis className="size-4" aria-hidden="true" />
@@ -320,7 +339,7 @@ const SortableColumn = ({
                         onSelect={() => setGroupDialogOpen(true)}
                       >
                         <Layers3 className="size-4" aria-hidden="true" />
-                        Объединить карточки
+                        {t("content.group.combine")}
                       </DropdownMenuItem>
                     ) : null}
                     {board.capabilities.canManageColumns ? (
@@ -328,7 +347,7 @@ const SortableColumn = ({
                         onSelect={() => onManageColumn(column.id)}
                       >
                         <Settings2 className="size-4" aria-hidden="true" />
-                        Настроить колонку
+                        {t("content.column.configure")}
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>
@@ -337,7 +356,7 @@ const SortableColumn = ({
               {board.capabilities.canManageColumns ? (
                 <DragHandle
                   ref={handleRef}
-                  label={`Переместить колонку «${column.title}»`}
+                  label={t("content.column.move", { column: column.title })}
                   disabled={disabled}
                 />
               ) : null}
@@ -345,8 +364,7 @@ const SortableColumn = ({
           </div>
           {column.nextCursor !== null ? (
             <p className="mt-2 text-xs text-amber-800">
-              Загрузите все элементы колонки, чтобы менять её внутренний
-              порядок.
+              {t("content.column.incompleteOrder")}
             </p>
           ) : null}
         </header>
@@ -414,13 +432,17 @@ const ColumnContent = ({
   loadMoreError: string | null;
   disabled: boolean;
 }) => {
+  const { formatNumber, t } = useI18n();
   const listDndDisabled = disabled || column.nextCursor !== null;
   const { ref: dropRef, isDropTarget } = useDroppable({
     id: boardDndIds.columnDrop(column.id),
     type: `${DND_TYPES.item}_CONTAINER`,
     accept: DND_TYPES.item,
     collisionPriority: CollisionPriority.Low,
-    data: { label: `Список колонки «${column.title}»`, columnId: column.id },
+    data: {
+      label: t("content.column.list", { column: column.title }),
+      columnId: column.id,
+    },
     disabled: listDndDisabled,
   });
 
@@ -451,7 +473,7 @@ const ColumnContent = ({
         ) : null}
         {column.items.length === 0 && loadingKey !== `create:${column.id}` ? (
           <li className="flex min-h-20 items-center justify-center px-4 py-6 text-center text-sm text-muted-foreground">
-            Здесь пока нет карточек.
+            {t("content.column.empty")}
           </li>
         ) : null}
         {column.items.map((item, index) => (
@@ -475,7 +497,9 @@ const ColumnContent = ({
               type="button"
               variant="outline"
               className="w-full"
-              aria-label={`Показать ещё элементы колонки «${column.title}»`}
+              aria-label={t("content.column.loadMoreLabel", {
+                column: column.title,
+              })}
               aria-describedby={
                 loadMoreError ? `load-more-error-${column.id}` : undefined
               }
@@ -483,10 +507,13 @@ const ColumnContent = ({
               onClick={() => void onLoadMore(column.id)}
             >
               {loadingMore ? <Loader2 className="size-4 animate-spin" /> : null}
-              Показать ещё
+              {t("content.column.loadMore")}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Показано {column.items.length} из {column.totalCount}
+              {t("content.column.shownCount", {
+                shown: formatNumber(column.items.length),
+                total: formatNumber(column.totalCount),
+              })}
             </p>
           </li>
         ) : null}
@@ -512,21 +539,24 @@ const DragHandle = ({
   ref: (element: Element | null) => void;
   label: string;
   disabled: boolean;
-}) => (
-  <Button
-    ref={ref}
-    type="button"
-    size="icon"
-    variant="ghost"
-    disabled={disabled}
-    aria-label={label}
-    aria-describedby="board-dnd-instructions"
-    title={`${label}. Пробел или Enter — начать, Escape — отменить.`}
-    className="size-9 cursor-grab touch-none text-muted-foreground active:cursor-grabbing max-sm:size-11"
-  >
-    <GripVertical className="size-4" />
-  </Button>
-);
+}) => {
+  const { t } = useI18n();
+  return (
+    <Button
+      ref={ref}
+      type="button"
+      size="icon"
+      variant="ghost"
+      disabled={disabled}
+      aria-label={label}
+      aria-describedby="board-dnd-instructions"
+      title={t("content.dnd.handleHint", { label })}
+      className="size-9 cursor-grab touch-none text-muted-foreground active:cursor-grabbing max-sm:size-11"
+    >
+      <GripVertical className="size-4" />
+    </Button>
+  );
+};
 
 const SortableBoardItem = ({
   boardId,
@@ -551,6 +581,7 @@ const SortableBoardItem = ({
   actionError: ActionError;
   disabled: boolean;
 }) => {
+  const { formatDate, formatRelativeTime, t } = useI18n();
   const canMove = item.canMove;
   const { ref, targetRef, handleRef, isDragSource, isDropTarget } = useSortable(
     {
@@ -560,7 +591,7 @@ const SortableBoardItem = ({
       type: DND_TYPES.item,
       accept: DND_TYPES.item,
       data: {
-        label: itemLabel(item),
+        label: itemLabel(item, t),
         columnId: column.id,
         itemKind: item.kind,
       },
@@ -577,7 +608,7 @@ const SortableBoardItem = ({
   return (
     <li
       ref={canMove ? ref : targetRef}
-      aria-label={itemLabel(item)}
+      aria-label={itemLabel(item, t)}
       className={cn(
         "rounded-lg border bg-card p-3 transition-[border-color,background-color,opacity] hover:border-border/80 hover:bg-secondary/25",
         isDragSource && "opacity-30",
@@ -604,10 +635,19 @@ const SortableBoardItem = ({
       <div className="mt-3 flex min-w-0 items-center gap-1 border-t pt-2">
         <VoteButton
           cardId={item.kind === "CARD" ? item.id : item.primaryCardId}
-          label={
+          voteLabel={
             item.kind === "CARD"
-              ? `карточку «${item.text}»`
-              : `группу «${item.title ?? "Без названия"}»`
+              ? t("content.vote.voteForCard", { text: item.text })
+              : t("content.vote.voteForGroup", {
+                  title: item.title ?? t("content.group.unnamed"),
+                })
+          }
+          removeVoteLabel={
+            item.kind === "CARD"
+              ? t("content.vote.removeVoteFromCard", { text: item.text })
+              : t("content.vote.removeVoteFromGroup", {
+                  title: item.title ?? t("content.group.unnamed"),
+                })
           }
           voteCount={item.voteCount}
           viewerHasVoted={item.viewerHasVoted}
@@ -620,16 +660,22 @@ const SortableBoardItem = ({
         />
         <time
           dateTime={item.createdAt}
-          title={formatAbsoluteDate(item.createdAt)}
+          title={formatDate(item.createdAt, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
           suppressHydrationWarning
           className="ml-1 min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
         >
-          {formatRelativeDate(item.createdAt)}
+          {(() => {
+            const relative = relativeDateParts(item.createdAt);
+            return formatRelativeTime(relative.value, relative.unit);
+          })()}
         </time>
         {canMove ? (
           <DragHandle
             ref={handleRef}
-            label={itemMoveLabel(item)}
+            label={itemMoveLabel(item, t)}
             disabled={disabled}
           />
         ) : null}
@@ -656,23 +702,29 @@ const SortableBoardItem = ({
   );
 };
 
-const CardText = ({ card }: { card: CardView }) => (
-  <>
-    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-6 text-foreground/95">
-      {card.text}
-    </p>
-    {card.author ? (
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        <span className="font-medium text-foreground">Автор:</span>{" "}
-        {card.author}
+const CardText = ({ card }: { card: CardView }) => {
+  const { t } = useI18n();
+  return (
+    <>
+      <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-6 text-foreground/95">
+        {card.text}
       </p>
-    ) : null}
-  </>
-);
+      {card.author ? (
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {t("content.card.authorLabel")}
+          </span>{" "}
+          {card.author}
+        </p>
+      ) : null}
+    </>
+  );
+};
 
 const VoteButton = ({
   cardId,
-  label,
+  voteLabel,
+  removeVoteLabel,
   voteCount,
   viewerHasVoted,
   canVote,
@@ -683,7 +735,8 @@ const VoteButton = ({
   actionError,
 }: {
   cardId: string;
-  label: string;
+  voteLabel: string;
+  removeVoteLabel: string;
   voteCount: number;
   viewerHasVoted: boolean;
   canVote: boolean;
@@ -693,15 +746,16 @@ const VoteButton = ({
   loadingKey: string | null;
   actionError: ActionError;
 }) => {
+  const { formatNumber, t } = useI18n();
   const key = `vote:${cardId}`;
   const canToggle =
     canVote && voteLimit > 0 && (viewerHasVoted || remainingVotes > 0);
   const disabledReason = !canVote
-    ? "Голосование сейчас недоступно."
+    ? t("content.vote.unavailableDescription")
     : voteLimit === 0
-      ? "Голосование в этой колонке выключено."
+      ? t("content.vote.disabledDescription")
       : !viewerHasVoted && remainingVotes === 0
-        ? "Лимит голосов в этой колонке исчерпан."
+        ? t("content.vote.limitReached")
         : null;
   const descriptionId =
     actionError?.key === key
@@ -714,7 +768,7 @@ const VoteButton = ({
     <div className="space-y-1">
       <Button
         type="button"
-        aria-label={`${viewerHasVoted ? "Отменить голос за" : "Проголосовать за"} ${label}`}
+        aria-label={viewerHasVoted ? removeVoteLabel : voteLabel}
         aria-pressed={viewerHasVoted}
         aria-describedby={descriptionId}
         title={disabledReason ?? undefined}
@@ -735,7 +789,7 @@ const VoteButton = ({
             className={cn("size-4", viewerHasVoted && "fill-current")}
           />
         )}
-        <span>{voteCount}</span>
+        <span>{formatNumber(voteCount)}</span>
       </Button>
       {actionError?.key === key ? (
         <p
@@ -783,68 +837,87 @@ const GroupItemContent = ({
   onChanged: () => Promise<unknown>;
   loadingKey: string | null;
   actionError: ActionError;
-}) => (
-  <>
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0 space-y-1">
-        <div className="flex items-center gap-2">
-          <Layers3 className="size-4 shrink-0 text-muted-foreground" />
-          <p className="break-words text-sm font-semibold">
-            {group.title ?? "Группа карточек"}
+}) => {
+  const { formatNumber, t } = useI18n();
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <Layers3 className="size-4 shrink-0 text-muted-foreground" />
+            <p className="break-words text-sm font-semibold">
+              {group.title ?? t("content.group.defaultTitle")}
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("content.group.originals", {
+              count: group.cards.length,
+              formattedCount: formatNumber(group.cards.length),
+            })}
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Оригиналов: {group.cards.length}
-        </p>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {formatNumber(group.cards.length)}
+        </span>
       </div>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        {group.cards.length}
-      </span>
-    </div>
-    <details className="mt-3 border-t pt-3">
-      <summary className="cursor-pointer rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-        Показать исходные карточки
-      </summary>
-      <ul className="mt-2 divide-y">
-        {group.cards.map((card) => (
-          <li key={card.id} className="py-3 first:pt-1 last:pb-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <CardText card={card} />
+      <details className="mt-3 border-t pt-3">
+        <summary className="cursor-pointer rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          {t("content.group.showOriginals")}
+        </summary>
+        <ul className="mt-2 divide-y">
+          {group.cards.map((card) => (
+            <li key={card.id} className="py-3 first:pt-1 last:pb-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <CardText card={card} />
+                </div>
+                <CardMenu
+                  boardId={boardId}
+                  card={card}
+                  revision={revision}
+                  canManageActionItems={canManageActionItems}
+                  disabled={loadingKey !== null}
+                  onChanged={onChanged}
+                />
               </div>
-              <CardMenu
-                boardId={boardId}
-                card={card}
-                revision={revision}
-                canManageActionItems={canManageActionItems}
-                disabled={loadingKey !== null}
-                onChanged={onChanged}
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>Голосов: {card.voteCount}</span>
-              {card.viewerHasVoted ? <span>Ваш голос</span> : null}
-            </div>
-            {card.viewerHasVoted && card.id !== group.primaryCardId ? (
-              <VoteButton
-                cardId={card.id}
-                label={`исходную карточку «${card.text}»`}
-                voteCount={card.voteCount}
-                viewerHasVoted
-                canVote={canVote}
-                voteLimit={voteLimit}
-                remainingVotes={remainingVotes}
-                onToggleVote={onToggleVote}
-                loadingKey={loadingKey}
-                actionError={actionError}
-              />
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    </details>
-  </>
-);
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  {t("content.vote.votesLabel", {
+                    count: card.voteCount,
+                    formattedCount: formatNumber(card.voteCount),
+                  })}
+                </span>
+                {card.viewerHasVoted ? (
+                  <span>{t("content.vote.yourVote")}</span>
+                ) : null}
+              </div>
+              {card.viewerHasVoted && card.id !== group.primaryCardId ? (
+                <VoteButton
+                  cardId={card.id}
+                  voteLabel={t("content.vote.voteForOriginalCard", {
+                    text: card.text,
+                  })}
+                  removeVoteLabel={t(
+                    "content.vote.removeVoteFromOriginalCard",
+                    { text: card.text },
+                  )}
+                  voteCount={card.voteCount}
+                  viewerHasVoted
+                  canVote={canVote}
+                  voteLimit={voteLimit}
+                  remainingVotes={remainingVotes}
+                  onToggleVote={onToggleVote}
+                  loadingKey={loadingKey}
+                  actionError={actionError}
+                />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </>
+  );
+};
 
 const ActionItemsColumn = ({
   boardId,
@@ -856,72 +929,78 @@ const ActionItemsColumn = ({
   board: BoardSnapshot;
   onChanged: () => Promise<unknown>;
   disabled: boolean;
-}) => (
-  <li className="h-full min-h-0 w-[calc(100vw-3rem-env(safe-area-inset-left)-env(safe-area-inset-right))] max-w-[23.75rem] shrink-0 snap-start sm:w-[21rem] lg:w-[min(23.75rem,calc((100vw-6rem)/3))]">
-    <section
-      role="region"
-      aria-labelledby="action-items-heading"
-      className="flex h-full min-h-[28rem] flex-col overflow-hidden rounded-[10px] border border-primary/20 bg-card"
-    >
-      <header className="border-b px-3 py-3">
-        <div className="flex min-w-0 items-start gap-2">
-          <span
-            className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
-            aria-hidden="true"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-start gap-2">
-              <h3
-                id="action-items-heading"
-                className="min-w-0 flex-1 text-[15px] leading-5 font-semibold"
-              >
-                Решения
-              </h3>
-              <span
-                className="inline-flex min-w-6 justify-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary"
-                aria-label={`${board.actionItems.length} решений`}
-              >
-                {board.actionItems.length}
-              </span>
+}) => {
+  const { formatNumber, t } = useI18n();
+  return (
+    <li className="h-full min-h-0 w-[calc(100vw-3rem-env(safe-area-inset-left)-env(safe-area-inset-right))] max-w-[23.75rem] shrink-0 snap-start sm:w-[21rem] lg:w-[min(23.75rem,calc((100vw-6rem)/3))]">
+      <section
+        role="region"
+        aria-labelledby="action-items-heading"
+        className="flex h-full min-h-[28rem] flex-col overflow-hidden rounded-[10px] border border-primary/20 bg-card"
+      >
+        <header className="border-b px-3 py-3">
+          <div className="flex min-w-0 items-start gap-2">
+            <span
+              className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-start gap-2">
+                <h3
+                  id="action-items-heading"
+                  className="min-w-0 flex-1 text-[15px] leading-5 font-semibold"
+                >
+                  {t("content.action.heading")}
+                </h3>
+                <span
+                  className="inline-flex min-w-6 justify-center rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary"
+                  aria-label={t("content.action.count", {
+                    count: board.actionItems.length,
+                    formattedCount: formatNumber(board.actionItems.length),
+                  })}
+                >
+                  {formatNumber(board.actionItems.length)}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("content.action.description")}
+              </p>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Следующие шаги команды
-            </p>
           </div>
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+          {board.capabilities.canManageActionItems ? (
+            <ActionItemComposer
+              boardId={boardId}
+              disabled={disabled}
+              onChanged={onChanged}
+              className="rounded-none border-0 border-b bg-transparent p-0 pb-3"
+            />
+          ) : null}
+          <ol className="flex min-h-20 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
+            {board.actionItems.length === 0 ? (
+              <li className="flex min-h-20 items-center justify-center px-4 py-6 text-center text-sm text-muted-foreground">
+                {t("content.action.empty")}
+              </li>
+            ) : (
+              board.actionItems.map((item, index) => (
+                <SortableActionItem
+                  key={item.id}
+                  boardId={boardId}
+                  board={board}
+                  item={item}
+                  index={index}
+                  disabled={disabled}
+                  onChanged={onChanged}
+                />
+              ))
+            )}
+          </ol>
         </div>
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-        {board.capabilities.canManageActionItems ? (
-          <ActionItemComposer
-            boardId={boardId}
-            disabled={disabled}
-            onChanged={onChanged}
-            className="rounded-none border-0 border-b bg-transparent p-0 pb-3"
-          />
-        ) : null}
-        <ol className="flex min-h-20 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
-          {board.actionItems.length === 0 ? (
-            <li className="flex min-h-20 items-center justify-center px-4 py-6 text-center text-sm text-muted-foreground">
-              Решений пока нет.
-            </li>
-          ) : (
-            board.actionItems.map((item, index) => (
-              <SortableActionItem
-                key={item.id}
-                boardId={boardId}
-                board={board}
-                item={item}
-                index={index}
-                disabled={disabled}
-                onChanged={onChanged}
-              />
-            ))
-          )}
-        </ol>
-      </div>
-    </section>
-  </li>
-);
+      </section>
+    </li>
+  );
+};
 
 const SortableActionItem = ({
   boardId,
@@ -938,6 +1017,7 @@ const SortableActionItem = ({
   disabled: boolean;
   onChanged: () => Promise<unknown>;
 }) => {
+  const { formatDate, formatRelativeTime, t } = useI18n();
   const canManage = board.capabilities.canManageActionItems;
   const { ref, targetRef, handleRef, isDragSource, isDropTarget } = useSortable(
     {
@@ -946,7 +1026,7 @@ const SortableActionItem = ({
       group: ACTION_GROUP,
       type: DND_TYPES.action,
       accept: DND_TYPES.action,
-      data: { label: actionLabel(item) },
+      data: { label: actionLabel(item, t) },
       disabled: {
         draggable: disabled || !canManage,
         droppable: disabled || !canManage,
@@ -957,7 +1037,7 @@ const SortableActionItem = ({
   return (
     <li
       ref={canManage ? ref : targetRef}
-      aria-label={actionLabel(item)}
+      aria-label={actionLabel(item, t)}
       className={cn(
         "rounded-lg border bg-card p-3 transition-[border-color,background-color,opacity] hover:border-border/80 hover:bg-secondary/25",
         isDragSource && "opacity-30",
@@ -977,8 +1057,8 @@ const SortableActionItem = ({
             role="img"
             aria-label={
               item.completed
-                ? "Статус решения: выполнено"
-                : "Статус решения: в работе"
+                ? t("content.action.completedStatus")
+                : t("content.action.activeStatus")
             }
             className={cn(
               "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border text-xs",
@@ -1001,7 +1081,9 @@ const SortableActionItem = ({
           </p>
           {item.assignee ? (
             <p className="text-xs text-muted-foreground">
-              Ответственный: {item.assignee}
+              {t("content.action.assigneeLabel", {
+                assignee: item.assignee,
+              })}
             </p>
           ) : null}
         </div>
@@ -1009,16 +1091,24 @@ const SortableActionItem = ({
       <div className="mt-3 flex items-center justify-end gap-1 border-t pt-2">
         <time
           dateTime={item.createdAt}
-          title={formatAbsoluteDate(item.createdAt)}
+          title={formatDate(item.createdAt, {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
           suppressHydrationWarning
           className="mr-auto min-w-0 truncate text-[11px] text-muted-foreground"
         >
-          {formatRelativeDate(item.createdAt)}
+          {(() => {
+            const relative = relativeDateParts(item.createdAt);
+            return formatRelativeTime(relative.value, relative.unit);
+          })()}
         </time>
         {canManage ? (
           <DragHandle
             ref={handleRef}
-            label={`Переместить ${actionLabel(item).toLowerCase()}`}
+            label={t("content.action.moveLabel", {
+              text: item.text.slice(0, 80),
+            })}
             disabled={disabled}
           />
         ) : null}

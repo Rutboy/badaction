@@ -16,18 +16,18 @@ const nullableTrimmedString = (maximum: number) => trimmedString(maximum).nullab
 
 export const targetUuidV4Schema = z
   .string()
-  .regex(UUID_V4_PATTERN, "Ожидается UUID v4")
+  .regex(UUID_V4_PATTERN, "Expected a UUID v4.")
   .transform((value) => value.toLowerCase());
 
 export const revisionSchema = z
   .string()
-  .regex(REVISION_PATTERN, "Revision должна быть канонической десятичной строкой")
+  .regex(REVISION_PATTERN, "Revision must be a canonical decimal string.")
   .max(19)
   .refine(
     (value) =>
       !REVISION_PATTERN.test(value) || BigInt(value) <= MAX_POSTGRES_BIGINT,
     {
-    message: "Revision превышает диапазон PostgreSQL bigint",
+      message: "Revision exceeds the PostgreSQL bigint range.",
     },
   );
 
@@ -58,7 +58,7 @@ export const itemPlacementSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["after"],
-        message: "Соседи placement должны быть разными",
+        message: "Placement neighbors must be different.",
       });
     }
   });
@@ -74,7 +74,7 @@ export const columnPlacementSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["afterColumnId"],
-        message: "Соседи placement должны быть разными",
+        message: "Placement neighbors must be different.",
       });
     }
   });
@@ -90,7 +90,7 @@ export const actionItemPlacementSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["afterActionItemId"],
-        message: "Соседи placement должны быть разными",
+        message: "Placement neighbors must be different.",
       });
     }
   });
@@ -103,7 +103,7 @@ const pageLimitSchema = z.preprocess(
 export const opaqueCursorSchema = z
   .string()
   .min(1)
-  .regex(/^[A-Za-z0-9_-]+$/, "Cursor должен быть base64url-строкой");
+  .regex(/^[A-Za-z0-9_-]+$/, "Cursor must be a base64url string.");
 
 export const targetBoardPageQuerySchema = z
   .object({
@@ -139,7 +139,7 @@ export const patchTargetBoardSchema = z
       cardsEnabled !== undefined ||
       votingEnabled !== undefined ||
       readOnly !== undefined,
-    { message: "PATCH должен содержать хотя бы одно изменяемое поле" },
+    { message: "PATCH must contain at least one mutable field." },
   );
 
 export const createTargetColumnSchema = z
@@ -162,7 +162,7 @@ export const patchTargetColumnSchema = z
     if (title === undefined && voteLimit === undefined) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "PATCH должен содержать title или voteLimit",
+        message: "PATCH must contain title or voteLimit.",
       });
     }
 
@@ -170,7 +170,7 @@ export const patchTargetColumnSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["expectedRevision"],
-        message: "expectedRevision обязателен при изменении voteLimit",
+        message: "expectedRevision is required when changing voteLimit.",
       });
     }
   });
@@ -225,7 +225,7 @@ export const patchTargetCardSchema = z
   })
   .strict()
   .refine(({ text, author }) => text !== undefined || author !== undefined, {
-    message: "PATCH должен содержать text или author",
+    message: "PATCH must contain text or author.",
   });
 
 export const moveTargetCardSchema = z
@@ -265,7 +265,7 @@ export const createTargetGroupSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["cardIds"],
-        message: "cardIds не должны содержать дубликаты",
+        message: "cardIds must not contain duplicates.",
       });
     }
 
@@ -273,7 +273,7 @@ export const createTargetGroupSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["primaryCardId"],
-        message: "primaryCardId должен входить в cardIds",
+        message: "primaryCardId must be included in cardIds.",
       });
     }
   });
@@ -289,7 +289,7 @@ export const patchTargetGroupSchema = z
     if (title === undefined && primaryCardId === undefined) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "PATCH должен содержать title или primaryCardId",
+        message: "PATCH must contain title or primaryCardId.",
       });
     }
 
@@ -297,7 +297,7 @@ export const patchTargetGroupSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["expectedRevision"],
-        message: "expectedRevision обязателен при изменении primaryCardId",
+        message: "expectedRevision is required when changing primaryCardId.",
       });
     }
   });
@@ -347,7 +347,7 @@ export const patchTargetActionItemSchema = z
   .refine(
     ({ text, assignee, completed }) =>
       text !== undefined || assignee !== undefined || completed !== undefined,
-    { message: "PATCH должен содержать хотя бы одно изменяемое поле" },
+    { message: "PATCH must contain at least one mutable field." },
   );
 
 export const moveTargetActionItemSchema = z

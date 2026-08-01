@@ -1,4 +1,6 @@
 export const COLUMNS = [
+  // Legacy stage-0 export labels are part of the byte-stable machine format.
+  // New dynamic boards use the locale-aware defaults in src/i18n/default-columns.ts.
   { key: "WENT_WELL", label: "Уже хорошо" },
   { key: "TO_IMPROVE", label: "Следует улучшить" },
   { key: "ACTIONS", label: "Решения" },

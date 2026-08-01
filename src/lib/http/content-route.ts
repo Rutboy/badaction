@@ -37,7 +37,7 @@ export const parseContentUuid = (value: string, field: string): string => {
   const parsed = targetUuidV4Schema.safeParse(value);
   if (!parsed.success) {
     throw validationError(
-      `Некорректный ${field}`,
+      `Invalid ${field}.`,
       parsed.error.issues.map((issue) => ({
         ...issue,
         path: [field, ...issue.path],
@@ -71,7 +71,7 @@ export const parseContentQuery = <Schema extends ZodTypeAny>(
     searchParamsAsStrictInput(new URL(request.url).searchParams),
   );
   if (!parsed.success) {
-    throw validationError("Некорректные параметры запроса", parsed.error.issues);
+    throw validationError("Invalid query parameters.", parsed.error.issues);
   }
 
   return parsed.data;
@@ -85,7 +85,7 @@ const parseContentJson = async <Schema extends ZodTypeAny>(
   const body = await readJsonBody(request, maxBodyBytes);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    throw validationError("Ошибка валидации", parsed.error.issues);
+    throw validationError("Validation failed.", parsed.error.issues);
   }
 
   return parsed.data;

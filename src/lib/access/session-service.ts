@@ -28,7 +28,7 @@ type SessionServiceOptions = {
 const inactiveSession = () => new ApiError(
   401,
   "ANONYMOUS_SESSION_INACTIVE",
-  "Анонимная сессия недействительна. Обновите страницу и повторите запрос.",
+  "Your anonymous session is no longer active. Refresh and try again.",
 );
 
 const toSessionContext = (session: {

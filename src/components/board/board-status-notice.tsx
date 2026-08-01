@@ -3,22 +3,24 @@
 import { AlertTriangle, Eye, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { BoardConnectionStatus } from "@/components/use-board-realtime";
+import { useI18n } from "@/i18n/provider";
+import type { Translate } from "@/i18n/translate";
 import type { BoardSnapshot } from "@/lib/pagination/board-state";
 
 export const PERSISTENT_CONNECTION_NOTICE_DELAY_MS = 10_000;
 
-const readModeMessage = (board: BoardSnapshot): string | null => {
+const readModeMessage = (board: BoardSnapshot, t: Translate): string | null => {
   if (board.settings.readOnly) {
-    return "Доска открыта только для чтения — содержимое временно нельзя изменять.";
+    return t("boardShell.notice.readOnly");
   }
   if (!board.settings.cardsEnabled && !board.settings.votingEnabled) {
-    return "Сбор карточек и голосование выключены владельцем.";
+    return t("boardShell.notice.cardsAndVotingDisabled");
   }
   if (!board.settings.cardsEnabled) {
-    return "Сбор карточек выключен, но голосование остаётся доступным.";
+    return t("boardShell.notice.cardsDisabled");
   }
   if (!board.settings.votingEnabled) {
-    return "Голосование выключено, карточки по-прежнему можно добавлять.";
+    return t("boardShell.notice.votingDisabled");
   }
   return null;
 };
@@ -34,7 +36,8 @@ export const BoardStatusNotice = ({
   syncError: string | null;
   dndError: string | null;
 }) => {
-  const modeMessage = readModeMessage(board);
+  const { t } = useI18n();
+  const modeMessage = readModeMessage(board, t);
   const hasDegradedConnection =
     connectionStatus === "reconnecting" || connectionStatus === "polling";
   const [showPersistentConnectionNotice, setShowPersistentConnectionNotice] =
@@ -55,9 +58,9 @@ export const BoardStatusNotice = ({
 
   const persistentConnectionMessage =
     connectionStatus === "reconnecting"
-      ? "Realtime-соединение прервано. Изменения будут сверены после восстановления связи."
+      ? t("boardShell.notice.reconnecting")
       : connectionStatus === "polling"
-        ? "Realtime недоступен — доска обновляется периодической сверкой."
+        ? t("boardShell.notice.polling")
         : null;
   const visiblePersistentConnectionMessage = showPersistentConnectionNotice
     ? persistentConnectionMessage
@@ -94,7 +97,9 @@ export const BoardStatusNotice = ({
             ) : null}
             {syncError ? (
               <span role="alert">
-                {syncError} Последняя загруженная версия остаётся на экране.
+                {t("boardShell.notice.staleSnapshot", {
+                  message: syncError,
+                })}
               </span>
             ) : null}
           </p>

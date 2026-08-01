@@ -9,7 +9,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { type RefObject, useId, useState } from "react";
+import { type RefObject, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { readApiError } from "@/i18n/api-errors";
+import { useI18n } from "@/i18n/provider";
 import type {
   ActionItemView,
   CardView,
@@ -39,19 +41,10 @@ import { cn } from "@/lib/utils";
 
 type OnChanged = () => unknown | Promise<unknown>;
 
-type ApiErrorPayload = {
-  error?: {
-    message?: string;
-  };
-};
-
-const readApiError = async (response: Response, fallback: string): Promise<string> => {
-  const data = (await response.json().catch(() => null)) as ApiErrorPayload | null;
-  return data?.error?.message ?? fallback;
-};
+class LocalizedRequestError extends Error {}
 
 const getErrorMessage = (error: unknown, fallback: string): string =>
-  error instanceof Error && error.message ? error.message : fallback;
+  error instanceof LocalizedRequestError ? error.message : fallback;
 
 const nullableText = (value: string): string | null => {
   const normalized = value.trim();
@@ -109,8 +102,10 @@ const ConfirmationDialog = ({
   pending,
   error,
   onConfirm,
-}: ConfirmationDialogProps) => (
-  <Dialog
+}: ConfirmationDialogProps) => {
+  const { t } = useI18n();
+  return (
+    <Dialog
     open={open}
     onOpenChange={(nextOpen) => {
       if (!pending) onOpenChange(nextOpen);
@@ -129,7 +124,7 @@ const ConfirmationDialog = ({
           disabled={pending}
           onClick={() => onOpenChange(false)}
         >
-          Отмена
+          {t("content.common.cancel")}
         </Button>
         <Button
           type="button"
@@ -143,8 +138,9 @@ const ConfirmationDialog = ({
         </Button>
       </DialogFooter>
     </DialogContent>
-  </Dialog>
-);
+    </Dialog>
+  );
+};
 
 export type CardMenuProps = {
   boardId: string;
@@ -163,6 +159,7 @@ export const CardMenu = ({
   disabled = false,
   onChanged,
 }: CardMenuProps) => {
+  const { locale, t } = useI18n();
   const textId = useId();
   const authorId = useId();
   const assigneeId = useId();
@@ -174,6 +171,8 @@ export const CardMenu = ({
   const [assignee, setAssignee] = useState("");
   const [pending, setPending] = useState<"edit" | "delete" | "action" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setError(null), [locale]);
 
   if (!card.canEdit && !card.canDelete && !canManageActionItems) {
     return null;
@@ -189,7 +188,7 @@ export const CardMenu = ({
   const updateCard = async () => {
     if (pending) return;
     if (!text.trim()) {
-      setError("Введите текст карточки.");
+      setError(t("content.card.textRequired"));
       return;
     }
 
@@ -205,14 +204,16 @@ export const CardMenu = ({
         }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось изменить карточку."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.card.updateFailed"),
+        );
       }
 
       await onChanged();
       setEditOpen(false);
-      toast.success("Карточка обновлена");
+      toast.success(t("content.card.updated"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось изменить карточку.");
+      const message = getErrorMessage(caughtError, t("content.card.updateFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -230,14 +231,16 @@ export const CardMenu = ({
         body: JSON.stringify({ expectedRevision: revision }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось удалить карточку."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.card.deleteFailed"),
+        );
       }
 
       await onChanged();
       setDeleteOpen(false);
-      toast.success("Карточка удалена");
+      toast.success(t("content.card.deleted"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось удалить карточку.");
+      const message = getErrorMessage(caughtError, t("content.card.deleteFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -259,15 +262,17 @@ export const CardMenu = ({
         }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось создать решение."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.action.createFailed"),
+        );
       }
 
       await onChanged();
       setActionOpen(false);
       setAssignee("");
-      toast.success("Решение создано");
+      toast.success(t("content.action.created"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось создать решение.");
+      const message = getErrorMessage(caughtError, t("content.action.createFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -279,12 +284,12 @@ export const CardMenu = ({
   return (
     <>
       <DropdownMenu>
-        <MenuTrigger label="Действия с карточкой" disabled={controlsDisabled} />
+        <MenuTrigger label={t("content.card.actions")} disabled={controlsDisabled} />
         <DropdownMenuContent align="end">
           {card.canEdit ? (
             <DropdownMenuItem onSelect={openEdit} disabled={controlsDisabled}>
               <Pencil className="size-4" aria-hidden="true" />
-              Изменить
+              {t("content.common.edit")}
             </DropdownMenuItem>
           ) : null}
           {canManageActionItems ? (
@@ -297,7 +302,7 @@ export const CardMenu = ({
               }}
             >
               <Plus className="size-4" aria-hidden="true" />
-              Создать решение
+              {t("content.card.createAction")}
             </DropdownMenuItem>
           ) : null}
           {card.canDelete ? (
@@ -312,7 +317,7 @@ export const CardMenu = ({
                 }}
               >
                 <Trash2 className="size-4" aria-hidden="true" />
-                Удалить
+                {t("content.common.delete")}
               </DropdownMenuItem>
             </>
           ) : null}
@@ -327,12 +332,13 @@ export const CardMenu = ({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Изменить карточку</DialogTitle>
+            <DialogTitle>{t("content.card.editTitle")}</DialogTitle>
             <DialogDescription>
-              Обновите текст и необязательное отображаемое имя автора.
+              {t("content.card.editDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "edit"}
             onSubmit={(event) => {
@@ -342,7 +348,7 @@ export const CardMenu = ({
           >
             <div className="space-y-2">
               <label htmlFor={textId} className="text-sm font-medium">
-                Текст карточки
+                {t("content.card.textLabel")}
               </label>
               <Textarea
                 id={textId}
@@ -356,14 +362,14 @@ export const CardMenu = ({
             </div>
             <div className="space-y-2">
               <label htmlFor={authorId} className="text-sm font-medium">
-                Автор
+                {t("content.common.owner")}
               </label>
               <Input
                 id={authorId}
                 value={author}
                 onChange={(event) => setAuthor(event.target.value)}
                 maxLength={120}
-                placeholder="Необязательно"
+                placeholder={t("content.common.optional")}
                 disabled={pending === "edit"}
               />
             </div>
@@ -375,11 +381,13 @@ export const CardMenu = ({
                 onClick={() => setEditOpen(false)}
                 disabled={pending === "edit"}
               >
-                Отмена
+                {t("content.common.cancel")}
               </Button>
               <Button type="submit" disabled={pending === "edit" || !text.trim()}>
                 <PendingLabel pending={pending === "edit"}>
-                  {pending === "edit" ? "Сохраняем..." : "Сохранить"}
+                  {pending === "edit"
+                    ? t("content.common.saving")
+                    : t("content.common.save")}
                 </PendingLabel>
               </Button>
             </DialogFooter>
@@ -395,12 +403,13 @@ export const CardMenu = ({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Создать решение</DialogTitle>
+            <DialogTitle>{t("content.card.createActionTitle")}</DialogTitle>
             <DialogDescription>
-              Текст будет скопирован из карточки. При необходимости назначьте ответственного.
+              {t("content.card.createActionDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "action"}
             onSubmit={(event) => {
@@ -413,14 +422,14 @@ export const CardMenu = ({
             </div>
             <div className="space-y-2">
               <label htmlFor={assigneeId} className="text-sm font-medium">
-                Ответственный
+                {t("content.common.assignee")}
               </label>
               <Input
                 id={assigneeId}
                 value={assignee}
                 onChange={(event) => setAssignee(event.target.value)}
                 maxLength={120}
-                placeholder="Необязательно"
+                placeholder={t("content.common.optional")}
                 autoFocus
                 disabled={pending === "action"}
               />
@@ -433,11 +442,13 @@ export const CardMenu = ({
                 onClick={() => setActionOpen(false)}
                 disabled={pending === "action"}
               >
-                Отмена
+                {t("content.common.cancel")}
               </Button>
               <Button type="submit" disabled={pending === "action"}>
                 <PendingLabel pending={pending === "action"}>
-                  {pending === "action" ? "Создаём..." : "Создать"}
+                  {pending === "action"
+                    ? t("content.common.adding")
+                    : t("content.common.create")}
                 </PendingLabel>
               </Button>
             </DialogFooter>
@@ -451,10 +462,10 @@ export const CardMenu = ({
           setDeleteOpen(nextOpen);
           if (nextOpen) setError(null);
         }}
-        title="Удалить карточку?"
-        description="Карточка и все её голоса будут удалены. Если она входит в группу, состав группы изменится."
-        confirmLabel="Удалить"
-        pendingLabel="Удаляем..."
+        title={t("content.card.deleteTitle")}
+        description={t("content.card.deleteDescription")}
+        confirmLabel={t("content.common.delete")}
+        pendingLabel={t("content.common.deleting")}
         pending={pending === "delete"}
         error={error}
         onConfirm={deleteCard}
@@ -478,6 +489,7 @@ export const GroupMenu = ({
   disabled = false,
   onChanged,
 }: GroupMenuProps) => {
+  const { locale, t } = useI18n();
   const titleId = useId();
   const primaryId = useId();
   const [editOpen, setEditOpen] = useState(false);
@@ -486,6 +498,8 @@ export const GroupMenu = ({
   const [primaryCardId, setPrimaryCardId] = useState(group.primaryCardId);
   const [pending, setPending] = useState<"edit" | "ungroup" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setError(null), [locale]);
 
   if (!group.canUngroup) return null;
 
@@ -510,14 +524,16 @@ export const GroupMenu = ({
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось изменить группу."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.group.updateFailed"),
+        );
       }
 
       await onChanged();
       setEditOpen(false);
-      toast.success("Группа обновлена");
+      toast.success(t("content.group.updated"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось изменить группу.");
+      const message = getErrorMessage(caughtError, t("content.group.updateFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -535,14 +551,16 @@ export const GroupMenu = ({
         body: JSON.stringify({ expectedRevision: revision }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось распустить группу."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.group.ungroupFailed"),
+        );
       }
 
       await onChanged();
       setUngroupOpen(false);
-      toast.success("Группа распущена");
+      toast.success(t("content.group.ungrouped"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось распустить группу.");
+      const message = getErrorMessage(caughtError, t("content.group.ungroupFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -554,7 +572,7 @@ export const GroupMenu = ({
   return (
     <>
       <DropdownMenu>
-        <MenuTrigger label="Действия с группой" disabled={controlsDisabled} />
+        <MenuTrigger label={t("content.group.actions")} disabled={controlsDisabled} />
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             disabled={controlsDisabled}
@@ -566,7 +584,7 @@ export const GroupMenu = ({
             }}
           >
             <Pencil className="size-4" aria-hidden="true" />
-            Настроить группу
+            {t("content.group.configure")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -577,7 +595,7 @@ export const GroupMenu = ({
             }}
           >
             <Layers3 className="size-4" aria-hidden="true" />
-            Распустить группу
+            {t("content.group.ungroup")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -590,12 +608,13 @@ export const GroupMenu = ({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Настроить группу</DialogTitle>
+            <DialogTitle>{t("content.group.configureTitle")}</DialogTitle>
             <DialogDescription>
-              Название необязательно. Голос по свёрнутой группе относится к основной карточке.
+              {t("content.group.configureDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "edit"}
             onSubmit={(event) => {
@@ -605,21 +624,21 @@ export const GroupMenu = ({
           >
             <div className="space-y-2">
               <label htmlFor={titleId} className="text-sm font-medium">
-                Название группы
+                {t("content.group.nameLabel")}
               </label>
               <Input
                 id={titleId}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 maxLength={120}
-                placeholder="Необязательно"
+                placeholder={t("content.common.optional")}
                 autoFocus
                 disabled={pending === "edit"}
               />
             </div>
             <div className="space-y-2">
               <label htmlFor={primaryId} className="text-sm font-medium">
-                Основная карточка
+                {t("content.group.primaryCard")}
               </label>
               <select
                 id={primaryId}
@@ -643,11 +662,13 @@ export const GroupMenu = ({
                 onClick={() => setEditOpen(false)}
                 disabled={pending === "edit"}
               >
-                Отмена
+                {t("content.common.cancel")}
               </Button>
               <Button type="submit" disabled={pending === "edit"}>
                 <PendingLabel pending={pending === "edit"}>
-                  {pending === "edit" ? "Сохраняем..." : "Сохранить"}
+                  {pending === "edit"
+                    ? t("content.common.saving")
+                    : t("content.common.save")}
                 </PendingLabel>
               </Button>
             </DialogFooter>
@@ -661,10 +682,10 @@ export const GroupMenu = ({
           setUngroupOpen(nextOpen);
           if (nextOpen) setError(null);
         }}
-        title="Распустить группу?"
-        description="Исходные карточки вернутся в колонку в сохранённом порядке. Их авторы и голоса не изменятся."
-        confirmLabel="Распустить"
-        pendingLabel="Распускаем..."
+        title={t("content.group.ungroupTitle")}
+        description={t("content.group.ungroupDescription")}
+        confirmLabel={t("content.group.ungroup")}
+        pendingLabel={t("content.group.ungrouping")}
         pending={pending === "ungroup"}
         error={error}
         onConfirm={ungroup}
@@ -698,6 +719,7 @@ export const GroupCardsDialog = ({
   returnFocusRef,
   onChanged,
 }: GroupCardsDialogProps) => {
+  const { formatNumber, locale, t } = useI18n();
   const titleId = useId();
   const primaryId = useId();
   const checkboxPrefix = useId();
@@ -708,6 +730,8 @@ export const GroupCardsDialog = ({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const open = controlledOpen ?? internalOpen;
+
+  useEffect(() => setError(null), [locale]);
 
   const setOpen = (nextOpen: boolean) => {
     if (controlledOpen === undefined) {
@@ -725,7 +749,7 @@ export const GroupCardsDialog = ({
 
   const toggleCard = (cardId: string, checked: boolean) => {
     if (checked && selectedIds.length >= 100) {
-      setError("В одну группу можно добавить не более 100 карточек.");
+      setError(t("content.group.tooMany"));
       return;
     }
     const next = checked
@@ -740,11 +764,11 @@ export const GroupCardsDialog = ({
   const createGroup = async () => {
     if (pending) return;
     if (selectedIds.length < 2 || selectedIds.length > 100) {
-      setError("Выберите от 2 до 100 карточек.");
+      setError(t("content.group.selectionRequired"));
       return;
     }
     if (!primaryCardId || !selectedIds.includes(primaryCardId)) {
-      setError("Выберите основную карточку группы.");
+      setError(t("content.group.primaryRequired"));
       return;
     }
 
@@ -763,15 +787,17 @@ export const GroupCardsDialog = ({
         }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось создать группу."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.group.createFailed"),
+        );
       }
 
       await onChanged();
       setOpen(false);
       resetForm();
-      toast.success("Группа создана");
+      toast.success(t("content.group.created"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось создать группу.");
+      const message = getErrorMessage(caughtError, t("content.group.createFailed"));
       setError(message);
     } finally {
       setPending(false);
@@ -796,8 +822,8 @@ export const GroupCardsDialog = ({
             variant="ghost"
             size="icon"
             className="size-9 text-muted-foreground max-sm:size-11"
-            aria-label="Объединить карточки"
-            title="Объединить карточки"
+            aria-label={t("content.group.combine")}
+            title={t("content.group.combine")}
             disabled={disabled || cards.length < 2}
           >
             <Layers3 className="size-4" aria-hidden="true" />
@@ -818,12 +844,13 @@ export const GroupCardsDialog = ({
         }
       >
         <DialogHeader className="border-b px-5 py-4 pr-12">
-          <DialogTitle>Объединить карточки</DialogTitle>
+          <DialogTitle>{t("content.group.combineTitle")}</DialogTitle>
           <DialogDescription>
-            Выберите от 2 до 100 карточек одной колонки. Исходные тексты, авторы и голоса сохранятся.
+            {t("content.group.combineDescription")}
           </DialogDescription>
         </DialogHeader>
         <form
+          noValidate
           className="flex min-h-0 flex-1 flex-col"
           aria-busy={pending}
           onSubmit={(event) => {
@@ -833,7 +860,9 @@ export const GroupCardsDialog = ({
         >
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             <fieldset className="space-y-2" disabled={pending}>
-              <legend className="text-sm font-medium">Карточки</legend>
+              <legend className="text-sm font-medium">
+                {t("content.group.cardsLabel")}
+              </legend>
               <div className="max-h-64 divide-y overflow-y-auto rounded-md border bg-card">
                 {cards.map((card) => {
                   const checked = selectedIds.includes(card.id);
@@ -868,7 +897,7 @@ export const GroupCardsDialog = ({
             </fieldset>
             <div className="space-y-2">
               <label htmlFor={primaryId} className="text-sm font-medium">
-                Основная карточка
+                {t("content.group.primaryCard")}
               </label>
               <select
                 id={primaryId}
@@ -878,7 +907,7 @@ export const GroupCardsDialog = ({
                 required
                 className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 disabled:opacity-60"
               >
-                <option value="">Выберите карточку</option>
+                <option value="">{t("content.common.selectCard")}</option>
                 {selectedCards.map((card) => (
                   <option key={card.id} value={card.id}>
                     {card.text}
@@ -888,14 +917,14 @@ export const GroupCardsDialog = ({
             </div>
             <div className="space-y-2">
               <label htmlFor={titleId} className="text-sm font-medium">
-                Название группы
+                {t("content.group.nameLabel")}
               </label>
               <Input
                 id={titleId}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 maxLength={120}
-                placeholder="Необязательно"
+                placeholder={t("content.common.optional")}
                 disabled={pending}
               />
             </div>
@@ -904,18 +933,23 @@ export const GroupCardsDialog = ({
             <MutationError message={error} />
             <div className={cn("flex items-center justify-between gap-3", error && "mt-3")}>
               <p className="shrink-0 text-xs text-muted-foreground" aria-live="polite">
-                Выбрано: {selectedIds.length}
+                {t("content.common.selectedCount", {
+                  count: selectedIds.length,
+                  formattedCount: formatNumber(selectedIds.length),
+                })}
               </p>
               <DialogFooter className="flex-row justify-end">
                 <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
-                  Отмена
+                  {t("content.common.cancel")}
                 </Button>
                 <Button
                   type="submit"
                   disabled={pending || selectedIds.length < 2 || !primaryCardId}
                 >
                   <PendingLabel pending={pending}>
-                    {pending ? "Объединяем..." : "Объединить"}
+                    {pending
+                      ? t("content.group.combining")
+                      : t("content.group.combine")}
                   </PendingLabel>
                 </Button>
               </DialogFooter>
@@ -942,6 +976,7 @@ export const ActionItemMenu = ({
   disabled = false,
   onChanged,
 }: ActionItemMenuProps) => {
+  const { locale, t } = useI18n();
   const textId = useId();
   const assigneeId = useId();
   const [editOpen, setEditOpen] = useState(false);
@@ -951,10 +986,12 @@ export const ActionItemMenu = ({
   const [pending, setPending] = useState<"edit" | "toggle" | "delete" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => setError(null), [locale]);
+
   const updateActionItem = async () => {
     if (pending) return;
     if (!text.trim()) {
-      setError("Введите текст решения.");
+      setError(t("content.action.textRequired"));
       return;
     }
 
@@ -970,14 +1007,16 @@ export const ActionItemMenu = ({
         }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось изменить решение."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.action.updateFailed"),
+        );
       }
 
       await onChanged();
       setEditOpen(false);
-      toast.success("Решение обновлено");
+      toast.success(t("content.action.updated"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось изменить решение.");
+      const message = getErrorMessage(caughtError, t("content.action.updateFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -995,13 +1034,19 @@ export const ActionItemMenu = ({
         body: JSON.stringify({ completed: !item.completed }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось изменить статус решения."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.action.statusFailed"),
+        );
       }
 
       await onChanged();
-      toast.success(item.completed ? "Решение возвращено в работу" : "Решение выполнено");
+      toast.success(
+        item.completed
+          ? t("content.action.reopened")
+          : t("content.action.completed"),
+      );
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось изменить статус решения.");
+      const message = getErrorMessage(caughtError, t("content.action.statusFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -1019,14 +1064,16 @@ export const ActionItemMenu = ({
         body: JSON.stringify({ expectedRevision: revision }),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось удалить решение."));
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.action.deleteFailed"),
+        );
       }
 
       await onChanged();
       setDeleteOpen(false);
-      toast.success("Решение удалено");
+      toast.success(t("content.action.deleted"));
     } catch (caughtError) {
-      const message = getErrorMessage(caughtError, "Не удалось удалить решение.");
+      const message = getErrorMessage(caughtError, t("content.action.deleteFailed"));
       setError(message);
     } finally {
       setPending(null);
@@ -1038,7 +1085,7 @@ export const ActionItemMenu = ({
   return (
     <div className="flex flex-col items-end gap-1">
       <DropdownMenu>
-        <MenuTrigger label="Действия с решением" disabled={controlsDisabled} />
+        <MenuTrigger label={t("content.action.actions")} disabled={controlsDisabled} />
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             disabled={controlsDisabled}
@@ -1050,11 +1097,13 @@ export const ActionItemMenu = ({
             }}
           >
             <Pencil className="size-4" aria-hidden="true" />
-            Изменить
+            {t("content.common.edit")}
           </DropdownMenuItem>
           <DropdownMenuItem disabled={controlsDisabled} onSelect={() => void toggleCompleted()}>
             <CheckCircle2 className="size-4" aria-hidden="true" />
-            {item.completed ? "Вернуть в работу" : "Отметить выполненным"}
+            {item.completed
+              ? t("content.action.returnToWork")
+              : t("content.action.markComplete")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -1066,7 +1115,7 @@ export const ActionItemMenu = ({
             }}
           >
             <Trash2 className="size-4" aria-hidden="true" />
-            Удалить
+            {t("content.common.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1084,12 +1133,13 @@ export const ActionItemMenu = ({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Изменить решение</DialogTitle>
+            <DialogTitle>{t("content.action.editTitle")}</DialogTitle>
             <DialogDescription>
-              Обновите формулировку действия и ответственного.
+              {t("content.action.editDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
+            noValidate
             className="space-y-4"
             aria-busy={pending === "edit"}
             onSubmit={(event) => {
@@ -1099,7 +1149,7 @@ export const ActionItemMenu = ({
           >
             <div className="space-y-2">
               <label htmlFor={textId} className="text-sm font-medium">
-                Действие
+                {t("content.action.actionLabel")}
               </label>
               <Textarea
                 id={textId}
@@ -1113,14 +1163,14 @@ export const ActionItemMenu = ({
             </div>
             <div className="space-y-2">
               <label htmlFor={assigneeId} className="text-sm font-medium">
-                Ответственный
+                {t("content.common.assignee")}
               </label>
               <Input
                 id={assigneeId}
                 value={assignee}
                 onChange={(event) => setAssignee(event.target.value)}
                 maxLength={120}
-                placeholder="Необязательно"
+                placeholder={t("content.common.optional")}
                 disabled={pending === "edit"}
               />
             </div>
@@ -1132,11 +1182,13 @@ export const ActionItemMenu = ({
                 onClick={() => setEditOpen(false)}
                 disabled={pending === "edit"}
               >
-                Отмена
+                {t("content.common.cancel")}
               </Button>
               <Button type="submit" disabled={pending === "edit" || !text.trim()}>
                 <PendingLabel pending={pending === "edit"}>
-                  {pending === "edit" ? "Сохраняем..." : "Сохранить"}
+                  {pending === "edit"
+                    ? t("content.common.saving")
+                    : t("content.common.save")}
                 </PendingLabel>
               </Button>
             </DialogFooter>
@@ -1150,10 +1202,10 @@ export const ActionItemMenu = ({
           setDeleteOpen(nextOpen);
           if (nextOpen) setError(null);
         }}
-        title="Удалить решение?"
-        description="Это действие нельзя отменить. Исходная карточка, если она существует, не изменится."
-        confirmLabel="Удалить"
-        pendingLabel="Удаляем..."
+        title={t("content.action.deleteTitle")}
+        description={t("content.action.deleteDescription")}
+        confirmLabel={t("content.common.delete")}
+        pendingLabel={t("content.common.deleting")}
         pending={pending === "delete"}
         error={error}
         onConfirm={deleteActionItem}

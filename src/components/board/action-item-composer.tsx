@@ -1,27 +1,13 @@
 "use client";
 
 import { Loader2, Plus, UserRound } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { readApiError } from "@/i18n/api-errors";
+import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-
-type ApiErrorPayload = {
-  error?: {
-    message?: string;
-  };
-};
-
-const readApiError = async (
-  response: Response,
-  fallback: string,
-): Promise<string> => {
-  const data = (await response
-    .json()
-    .catch(() => null)) as ApiErrorPayload | null;
-  return data?.error?.message ?? fallback;
-};
 
 const nullableText = (value: string): string | null => {
   const normalized = value.trim();
@@ -41,6 +27,7 @@ export const ActionItemComposer = ({
   onChanged,
   className,
 }: ActionItemComposerProps) => {
+  const { formatNumber, locale, t } = useI18n();
   const textId = useId();
   const assigneeId = useId();
   const errorId = useId();
@@ -52,6 +39,8 @@ export const ActionItemComposer = ({
   const [assignee, setAssignee] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setError(null), [locale]);
 
   const reset = () => {
     setText("");
@@ -71,7 +60,7 @@ export const ActionItemComposer = ({
     if (pending || disabled) return;
     const normalizedText = text.trim();
     if (!normalizedText) {
-      setError("Введите текст решения.");
+      setError(t("content.action.textRequired"));
       return;
     }
 
@@ -88,21 +77,18 @@ export const ActionItemComposer = ({
         }),
       });
       if (!response.ok) {
-        throw new Error(
-          await readApiError(response, "Не удалось создать решение."),
+        setError(
+          await readApiError(response, t, "content.action.createFailed"),
         );
+        return;
       }
 
       await onChanged();
       reset();
       setOpen(false);
       window.requestAnimationFrame(() => triggerRef.current?.focus());
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error && caughtError.message
-          ? caughtError.message
-          : "Не удалось создать решение.",
-      );
+    } catch {
+      setError(t("content.action.createFailed"));
     } finally {
       setPending(false);
     }
@@ -124,7 +110,7 @@ export const ActionItemComposer = ({
           }}
         >
           <Plus className="size-4" aria-hidden="true" />
-          Добавить решение
+          {t("content.action.add")}
         </Button>
       </div>
     );
@@ -132,6 +118,7 @@ export const ActionItemComposer = ({
 
   return (
     <form
+      noValidate
       className={cn("space-y-3 rounded-lg border bg-card p-3", className)}
       aria-busy={pending}
       onSubmit={(event) => {
@@ -152,11 +139,11 @@ export const ActionItemComposer = ({
     >
       <div className="flex items-center justify-between gap-3">
         <label htmlFor={textId} className="text-sm font-medium">
-          Новое решение
+          {t("content.action.new")}
         </label>
         {text.length >= 900 ? (
           <span className="text-xs tabular-nums text-muted-foreground">
-            {text.length}/1000
+            {formatNumber(text.length)}/{formatNumber(1000)}
           </span>
         ) : null}
       </div>
@@ -171,7 +158,7 @@ export const ActionItemComposer = ({
         required
         autoFocus
         disabled={pending || disabled}
-        placeholder="Что нужно сделать?"
+        placeholder={t("content.action.textPlaceholder")}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
         className="min-h-20"
@@ -183,7 +170,7 @@ export const ActionItemComposer = ({
             htmlFor={assigneeId}
             className="text-xs font-medium text-muted-foreground"
           >
-            Ответственный
+            {t("content.common.assignee")}
           </label>
           <Input
             ref={assigneeRef}
@@ -191,7 +178,7 @@ export const ActionItemComposer = ({
             value={assignee}
             onChange={(event) => setAssignee(event.target.value)}
             maxLength={120}
-            placeholder="Необязательно"
+            placeholder={t("content.action.assigneePlaceholder")}
             disabled={pending || disabled}
           />
         </div>
@@ -208,7 +195,7 @@ export const ActionItemComposer = ({
           }}
         >
           <UserRound className="size-4" aria-hidden="true" />
-          Указать ответственного
+          {t("content.action.addAssignee")}
         </Button>
       )}
 
@@ -226,7 +213,7 @@ export const ActionItemComposer = ({
           disabled={pending}
           onClick={close}
         >
-          Отмена
+          {t("content.common.cancel")}
         </Button>
         <Button
           type="submit"
@@ -236,7 +223,7 @@ export const ActionItemComposer = ({
           {pending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
-          {pending ? "Добавляем..." : "Добавить"}
+          {pending ? t("content.common.adding") : t("content.common.add")}
         </Button>
       </div>
     </form>

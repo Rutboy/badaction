@@ -1,26 +1,12 @@
 "use client";
 
 import { Check, Loader2 } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { readApiError } from "@/i18n/api-errors";
+import { useI18n } from "@/i18n/provider";
 import type { ActionItemView } from "@/lib/services/content-types";
 import { cn } from "@/lib/utils";
-
-type ApiErrorPayload = {
-  error?: {
-    message?: string;
-  };
-};
-
-const readApiError = async (
-  response: Response,
-  fallback: string,
-): Promise<string> => {
-  const data = (await response
-    .json()
-    .catch(() => null)) as ApiErrorPayload | null;
-  return data?.error?.message ?? fallback;
-};
 
 export type ActionItemCompletionControlProps = {
   boardId: string;
@@ -37,9 +23,12 @@ export const ActionItemCompletionControl = ({
   onChanged,
   className,
 }: ActionItemCompletionControlProps) => {
+  const { locale, t } = useI18n();
   const errorId = useId();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setError(null), [locale]);
 
   const toggleCompleted = async () => {
     if (pending || disabled) return;
@@ -55,26 +44,23 @@ export const ActionItemCompletionControl = ({
         },
       );
       if (!response.ok) {
-        throw new Error(
-          await readApiError(response, "Не удалось изменить статус решения."),
+        setError(
+          await readApiError(response, t, "content.action.statusFailed"),
         );
+        return;
       }
 
       await onChanged();
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error && caughtError.message
-          ? caughtError.message
-          : "Не удалось изменить статус решения.",
-      );
+    } catch {
+      setError(t("content.action.statusFailed"));
     } finally {
       setPending(false);
     }
   };
 
   const label = item.completed
-    ? "Вернуть решение в работу"
-    : "Отметить решение выполненным";
+    ? t("content.action.returnToWork")
+    : t("content.action.markComplete");
 
   return (
     <div className={cn("flex min-w-0 flex-col items-start gap-1", className)}>

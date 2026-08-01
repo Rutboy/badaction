@@ -17,7 +17,7 @@ export async function DELETE(
     const parsedBoardId = uuidParamSchema.safeParse(boardId);
     const parsedInvitationId = uuidParamSchema.safeParse(invitationId);
     if (!parsedBoardId.success || !parsedInvitationId.success) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Некорректный UUID");
+      throw new ApiError(400, "VALIDATION_ERROR", "Invalid UUID.");
     }
 
     const visitorPayload = await getOrSetVisitorToken();

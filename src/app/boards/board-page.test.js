@@ -155,11 +155,13 @@ test("Stage 4 uses the current dnd-kit React API with accessible input modes", a
   );
   assert.match(boardClient, /load\(\{ force: true \}\)/);
   assert.match(boardClient, /aria-live="polite"/);
-  assert.match(boardClient, /Escape отменяет перемещение/);
+  assert.match(boardClient, /createBoardAccessibility = \(t: Translate\)/);
+  assert.match(boardClient, /draggable: t\("boardShell\.dnd\.instructions"\)/);
+  assert.doesNotMatch(boardClient, /const BOARD_ACCESSIBILITY/);
   assert.match(boardClient, /setBoard\(optimistic\)/);
   assert.match(boardClient, /setBoard\(previous\)/);
   assert.doesNotMatch(boardClient, /toast\.success\(successMessage\)/);
-  assert.doesNotMatch(boardClient, /toast\.error\("Перемещение отменено"/);
+  assert.doesNotMatch(boardClient, /[А-Яа-яЁё]/);
   assert.match(
     boardColumns,
     /ref=\{board\.capabilities\.canManageColumns \? ref : targetRef\}/,
@@ -205,16 +207,23 @@ test("Stage 4 exposes every product management flow in the board UI", async () =
   assert.match(boardClient, /BoardManagementPanel/);
   assert.match(managementPanel, /BoardSettingsContent/);
   assert.match(managementPanel, /BoardAccessContent/);
+  assert.match(managementPanel, /LanguageSwitcher/);
+  assert.equal(
+    (managementPanel.match(/value: "interface"/g) ?? []).length,
+    2,
+    "Interface navigation must be available to owners and participants",
+  );
+  assert.match(managementPanel, /<InterfaceSection \/>/);
   assert.match(boardColumns, /CardMenu/);
   assert.match(boardColumns, /GroupCardsDialog/);
   assert.match(boardColumns, /ActionItemMenu/);
   assert.match(boardColumns, /group\.cards\.map[\s\S]*?<CardMenu/);
-  assert.match(boardColumns, /Действия с колонкой/);
-  assert.match(boardColumns, /Объединить карточки/);
-  assert.match(boardColumns, /Настроить колонку/);
+  assert.match(boardColumns, /content\.column\.actions/);
+  assert.match(boardColumns, /content\.group\.combine/);
+  assert.match(boardColumns, /content\.column\.configure/);
   assert.match(boardColumns, /onManageColumn\(column\.id\)/);
   assert.match(boardToolbar, /QuickColumnDialog/);
-  assert.match(boardToolbar, /Добавить колонку/);
+  assert.match(boardToolbar, /boardShell\.toolbar\.addColumn/);
   assert.match(quickColumnDialog, /expectedRevision: board\.revision/);
   assert.match(quickColumnDialog, /beforeColumnId: previousColumn\?\.id/);
   assert.match(

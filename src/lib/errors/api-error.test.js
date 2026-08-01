@@ -7,7 +7,7 @@ test("adds Retry-After to rate-limit responses", async () => {
     new ApiError(
       429,
       "RATE_LIMIT_EXCEEDED",
-      "Слишком много запросов",
+      "Too many requests. Try again later.",
       { retryAfterSeconds: 12.1 },
     ),
   );
@@ -18,7 +18,7 @@ test("adds Retry-After to rate-limit responses", async () => {
   assert.deepEqual(await response.json(), {
     error: {
       code: "RATE_LIMIT_EXCEEDED",
-      message: "Слишком много запросов",
+      message: "Too many requests. Try again later.",
       details: { retryAfterSeconds: 12.1 },
     },
   });
@@ -26,8 +26,20 @@ test("adds Retry-After to rate-limit responses", async () => {
 
 test("does not add Retry-After to unrelated responses", () => {
   const response = toErrorResponse(
-    new ApiError(400, "VALIDATION_ERROR", "Некорректный запрос", { retryAfterSeconds: 10 }),
+    new ApiError(400, "VALIDATION_ERROR", "Invalid request.", { retryAfterSeconds: 10 }),
   );
 
   assert.equal(response.headers.get("retry-after"), null);
+});
+
+test("masks unknown errors with a safe English fallback", async () => {
+  const response = toErrorResponse(new Error("private database details"));
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), {
+    error: {
+      code: "INTERNAL_ERROR",
+      message: "Internal server error.",
+    },
+  });
 });

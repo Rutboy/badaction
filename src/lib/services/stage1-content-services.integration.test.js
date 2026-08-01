@@ -75,6 +75,90 @@ const cleanupFixture = async ({ boardIds, visitorPayloads }) => {
   });
 };
 
+databaseTest("board creation localizes only new default columns and does not persist locale", async () => {
+  const fixture = { boardIds: [], visitorPayloads: [] };
+  const ownerPayload = createVisitorPayload();
+  fixture.visitorPayloads.push(ownerPayload);
+
+  const cases = [
+    {
+      title: "English defaults",
+      locale: "en",
+      expected: ["Went well", "Could improve"],
+      expectedOwner: "Owner",
+    },
+    {
+      title: "Russian defaults",
+      locale: "ru",
+      expected: ["Что прошло хорошо", "Что можно улучшить"],
+      expectedOwner: "Владелец",
+    },
+    {
+      title: "Spanish defaults",
+      locale: "es",
+      expected: ["Salió bien", "Se puede mejorar"],
+      expectedOwner: "Propietario",
+    },
+    {
+      title: "Invalid locale fallback",
+      locale: "de",
+      expected: ["Went well", "Could improve"],
+      expectedOwner: "Owner",
+    },
+    {
+      title: "Omitted locale fallback",
+      expected: ["Went well", "Could improve"],
+      expectedOwner: "Owner",
+    },
+  ];
+
+  try {
+    for (const localeCase of cases) {
+      const board = localeCase.locale === undefined
+        ? await createTargetBoard(ownerPayload, localeCase.title)
+        : await createTargetBoard(ownerPayload, localeCase.title, localeCase.locale);
+      fixture.boardIds.push(board.id);
+
+      const persisted = await prisma.board.findUniqueOrThrow({
+        where: { id: board.id },
+        include: { columns: { orderBy: [{ position: "asc" }, { id: "asc" }] } },
+      });
+      assert.equal(Object.hasOwn(persisted, "locale"), false);
+      assert.equal(persisted.revision, 0n);
+      const owner = await prisma.boardMembership.findFirstOrThrow({
+        where: { boardId: board.id, role: "OWNER", revokedAt: null },
+        select: { displayName: true },
+      });
+      assert.equal(owner.displayName, localeCase.expectedOwner);
+      assert.deepEqual(
+        persisted.columns.map(({ title, position, voteLimit }) => ({
+          title,
+          position,
+          voteLimit,
+        })),
+        localeCase.expected.map((title, index) => ({
+          title,
+          position: (index + 1) * 1024,
+          voteLimit: 3,
+        })),
+      );
+    }
+
+    const russianBoardId = fixture.boardIds[1];
+    const russianBoardAfterOtherLocaleCreates = await prisma.board.findUniqueOrThrow({
+      where: { id: russianBoardId },
+      include: { columns: { orderBy: [{ position: "asc" }, { id: "asc" }] } },
+    });
+    assert.equal(russianBoardAfterOtherLocaleCreates.revision, 0n);
+    assert.deepEqual(
+      russianBoardAfterOtherLocaleCreates.columns.map((column) => column.title),
+      ["Что прошло хорошо", "Что можно улучшить"],
+    );
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
 databaseTest("target board creation, settings modes, and dynamic columns preserve revision semantics", async () => {
   const fixture = { boardIds: [], visitorPayloads: [] };
   const ownerPayload = createVisitorPayload();

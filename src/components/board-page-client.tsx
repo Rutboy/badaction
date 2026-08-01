@@ -17,7 +17,7 @@ import { move as moveDndItems } from "@dnd-kit/helpers";
 import { isSortable } from "@dnd-kit/react/sortable";
 import { GripVertical, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BoardStatusNotice } from "@/components/board/board-status-notice";
 import { BoardToolbar } from "@/components/board/board-toolbar";
@@ -45,10 +45,16 @@ import {
   type BoardItemsPage,
   type BoardSnapshot,
 } from "@/lib/pagination/board-state";
+import { readApiError } from "@/i18n/api-errors";
+import type { MessageKey } from "@/i18n/messages";
+import { useI18n } from "@/i18n/provider";
+import type { Translate } from "@/i18n/translate";
 
 type SnapshotColumn = BoardSnapshot["columns"][number];
 
 type ActionError = { key: string; message: string } | null;
+
+class LocalizedDndError extends Error {}
 
 type ActiveDrag = {
   id: string;
@@ -58,19 +64,15 @@ type ActiveDrag = {
 
 const itemGroup = (columnId: string) => boardDndIds.columnDrop(columnId);
 
-const readApiError = async (response: Response, fallback: string): Promise<string> => {
-  const data = (await response.json().catch(() => null)) as {
-    error?: { message?: string };
-  } | null;
-  return data?.error?.message ?? fallback;
-};
-
-const readMutationRevision = async (response: Response): Promise<string> => {
+const readMutationRevision = async (
+  response: Response,
+  invalidRevisionMessage: string,
+): Promise<string> => {
   const data = (await response.json().catch(() => null)) as {
     revision?: unknown;
   } | null;
   if (typeof data?.revision !== "string" || !/^\d+$/.test(data.revision)) {
-    throw new Error("Порядок сохранён, но сервер вернул некорректную версию доски.");
+    throw new LocalizedDndError(invalidRevisionMessage);
   }
   return data.revision;
 };
@@ -95,23 +97,27 @@ const readDragLabel = (data: unknown, fallback: string | number): string => {
   return String(fallback);
 };
 
-const BOARD_ACCESSIBILITY = Accessibility.configure({
+const createBoardAccessibility = (t: Translate) => Accessibility.configure({
   screenReaderInstructions: {
-    draggable:
-      "Нажмите Пробел или Enter, чтобы начать перемещение. Используйте стрелки, затем Пробел или Enter для подтверждения. Escape отменяет перемещение.",
+    draggable: t("boardShell.dnd.instructions"),
   },
   announcements: {
     dragstart: ({ operation }: DragStartEvent) => {
       const source = operation.source;
       return source
-        ? `Начато перемещение: ${readDragLabel(source.data, source.id)}.`
+        ? t("boardShell.dnd.dragStart", {
+            label: readDragLabel(source.data, source.id),
+          })
         : undefined;
     },
     dragover: ({ operation }: DragOverEvent) => {
       const source = operation.source;
       const target = operation.target;
       return source && target
-        ? `${readDragLabel(source.data, source.id)} над ${readDragLabel(target.data, target.id)}.`
+        ? t("boardShell.dnd.dragOver", {
+            source: readDragLabel(source.data, source.id),
+            target: readDragLabel(target.data, target.id),
+          })
         : undefined;
     },
     dragend: ({ operation, canceled }: DragEndEvent) => {
@@ -120,8 +126,12 @@ const BOARD_ACCESSIBILITY = Accessibility.configure({
         return undefined;
       }
       return canceled
-        ? `Перемещение отменено: ${readDragLabel(source.data, source.id)}.`
-        : `${readDragLabel(source.data, source.id)} отпущен. Сохраняем новое положение.`;
+        ? t("boardShell.dnd.dragCanceled", {
+            label: readDragLabel(source.data, source.id),
+          })
+        : t("boardShell.dnd.dragDropped", {
+            label: readDragLabel(source.data, source.id),
+          });
     },
   },
   debounce: 250,
@@ -217,6 +227,10 @@ export const BoardPageClient = ({
   boardId: string;
   initialBoard: BoardSnapshot;
 }) => {
+  const { locale, t } = useI18n();
+  const tRef = useRef(t);
+  tRef.current = t;
+  const boardAccessibility = useMemo(() => createBoardAccessibility(t), [t]);
   const [board, setBoard] = useState<BoardSnapshot | null>(initialBoard);
   const [error, setError] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -243,6 +257,18 @@ export const BoardPageClient = ({
   const dragPreviewTargetId = useRef<string | null>(null);
   const pendingDragRefresh = useRef<BoardSnapshot | null>(null);
 
+  useEffect(() => {
+    // Transient messages are already localized strings. Do not leave a stale
+    // message from the previous locale beside newly translated controls.
+    setSyncError(null);
+    setActionError(null);
+    setLoadMoreErrors({});
+    setDndStatus("");
+    if (accessLost.current) {
+      setError(t("boardShell.page.accessLost"));
+    }
+  }, [locale, t]);
+
   const load = useCallback((options?: BoardRefreshOptions): Promise<BoardRefreshResult> => {
     if (accessLost.current) {
       return Promise.resolve({ status: "access-lost" });
@@ -263,12 +289,16 @@ export const BoardPageClient = ({
         if (response.status === 404) {
           accessLost.current = true;
           setBoard(null);
-          setError("Доска не найдена или доступ к ней отозван");
+          setError(tRef.current("boardShell.page.accessLost"));
           return { status: "access-lost" };
         }
 
         if (!response.ok) {
-          setSyncError(await readApiError(response, "Не удалось синхронизировать доску"));
+          setSyncError(await readApiError(
+            response,
+            tRef.current,
+            "boardShell.page.syncFailed",
+          ));
           return { status: "retryable" };
         }
 
@@ -287,7 +317,7 @@ export const BoardPageClient = ({
         return { status: "ok", revision: data.revision };
       } catch {
         if (sequence === loadSequence.current) {
-          setSyncError("Не удалось синхронизировать доску. Проверьте соединение.");
+          setSyncError(tRef.current("boardShell.page.syncNetworkFailed"));
         }
         return { status: "retryable" };
       } finally {
@@ -309,7 +339,7 @@ export const BoardPageClient = ({
     accessLost.current = true;
     loadSequence.current += 1;
     setBoard(null);
-    setError("Доска не найдена или доступ к ней отозван");
+    setError(tRef.current("boardShell.page.accessLost"));
   }, []);
 
   const connectionStatus = useBoardRealtime({
@@ -356,7 +386,11 @@ export const BoardPageClient = ({
       }
 
       if (!response.ok) {
-        const message = await readApiError(response, "Не удалось загрузить карточки");
+        const message = await readApiError(
+          response,
+          tRef.current,
+          "boardShell.page.loadCardsFailed",
+        );
         setLoadMoreErrors((current) => ({ ...current, [columnId]: message }));
         return;
       }
@@ -365,7 +399,7 @@ export const BoardPageClient = ({
       if (page.columnId !== columnId) {
         setLoadMoreErrors((current) => ({
           ...current,
-          [columnId]: "Сервер вернул страницу другой колонки",
+          [columnId]: tRef.current("boardShell.page.wrongColumnPage"),
         }));
         return;
       }
@@ -380,7 +414,7 @@ export const BoardPageClient = ({
       if (sequence === loadMoreSequence.current.get(columnId)) {
         setLoadMoreErrors((current) => ({
           ...current,
-          [columnId]: "Не удалось загрузить карточки. Проверьте соединение.",
+          [columnId]: tRef.current("boardShell.page.loadCardsNetworkFailed"),
         }));
       }
     } finally {
@@ -405,17 +439,21 @@ export const BoardPageClient = ({
       if (!response.ok) {
         return {
           ok: false as const,
-          message: await readApiError(response, "Ошибка создания карточки"),
+          message: await readApiError(
+            response,
+            tRef.current,
+            "content.card.createFailed",
+          ),
         };
       }
 
       await load();
-      toast.success("Карточка добавлена");
+      toast.success(tRef.current("boardShell.page.cardAdded"));
       return { ok: true as const };
     } catch {
       return {
         ok: false as const,
-        message: "Не удалось создать карточку. Проверьте соединение.",
+        message: tRef.current("content.card.createNetworkFailed"),
       };
     } finally {
       setSubmitting(null);
@@ -436,20 +474,25 @@ export const BoardPageClient = ({
           key,
           message: await readApiError(
             response,
-            viewerHasVoted ? "Не удалось снять голос" : "Не удалось проголосовать",
+            tRef.current,
+            viewerHasVoted
+              ? "content.vote.removeFailed"
+              : "content.vote.addFailed",
           ),
         });
         return;
       }
 
       await load();
-      toast.success(viewerHasVoted ? "Голос снят" : "Голос учтён");
+      toast.success(tRef.current(
+        viewerHasVoted ? "content.vote.removed" : "content.vote.added",
+      ));
     } catch {
       setActionError({
         key,
         message: viewerHasVoted
-          ? "Не удалось снять голос. Проверьте соединение."
-          : "Не удалось проголосовать. Проверьте соединение.",
+          ? tRef.current("boardShell.page.removeVoteNetworkFailed")
+          : tRef.current("boardShell.page.voteNetworkFailed"),
       });
     } finally {
       setSubmitting(null);
@@ -461,13 +504,13 @@ export const BoardPageClient = ({
     optimistic,
     path,
     body,
-    successMessage,
+    successKey,
   }: {
     previous: BoardSnapshot;
     optimistic: BoardSnapshot;
     path: string;
     body: unknown;
-    successMessage: string;
+    successKey: MessageKey;
   }) => {
     const key = "dnd:move";
     let moveWasSaved = false;
@@ -482,32 +525,42 @@ export const BoardPageClient = ({
         body: JSON.stringify(body),
       });
       if (!response.ok) {
-        throw new Error(await readApiError(response, "Не удалось сохранить новый порядок"));
+        throw new LocalizedDndError(await readApiError(
+          response,
+          tRef.current,
+          "boardShell.dnd.saveFailed",
+        ));
       }
 
       moveWasSaved = true;
-      const savedRevision = await readMutationRevision(response);
+      const savedRevision = await readMutationRevision(
+        response,
+        tRef.current("boardShell.dnd.invalidRevision"),
+      );
       const refreshResult = await load({ force: true });
       if (
         refreshResult.status !== "ok"
         || !revisionIsAtLeast(refreshResult.revision, savedRevision)
       ) {
-        throw new Error(
-          "Новый порядок сохранён, но получить актуальное состояние доски пока не удалось.",
-        );
+        throw new LocalizedDndError(tRef.current("boardShell.dnd.savedRefreshFailed"));
       }
-      setDndStatus(`${successMessage}. Новый порядок сохранён.`);
+      setDndStatus(tRef.current("boardShell.dnd.orderSaved", {
+        result: tRef.current(successKey),
+      }));
     } catch (moveError) {
-      const message = moveError instanceof Error
+      const message = moveError instanceof LocalizedDndError
         ? moveError.message
-        : "Не удалось сохранить новый порядок";
+        : tRef.current("boardShell.dnd.saveFailed");
       if (moveWasSaved) {
         setActionError(null);
         setSyncError(message);
         void load({ force: true });
       } else {
         setBoard(previous);
-        setActionError({ key, message: `Перемещение отменено. ${message}` });
+        setActionError({
+          key,
+          message: tRef.current("boardShell.dnd.canceledWithError", { message }),
+        });
         await load({ force: true });
       }
     } finally {
@@ -519,12 +572,14 @@ export const BoardPageClient = ({
     return (
       <main className="mx-auto flex min-h-[100dvh] max-w-xl items-center px-4 py-10">
         <section className="w-full space-y-4 border-l-2 border-destructive pl-5">
-          <h1 className="text-xl font-semibold">Доска недоступна</h1>
+          <h1 className="text-xl font-semibold">
+            {t("boardShell.page.unavailable")}
+          </h1>
           <p role="alert" className="text-sm text-muted-foreground">
-            {error ?? "Доска не найдена"}
+            {error ?? t("boardShell.page.notFound")}
           </p>
           <Button asChild variant="outline">
-            <Link href="/">Вернуться на главную</Link>
+            <Link href="/">{t("boardShell.page.backHome")}</Link>
           </Button>
         </section>
       </main>
@@ -542,7 +597,7 @@ export const BoardPageClient = ({
       plugins={(defaults) => [
         ...defaults.filter((plugin) =>
           plugin !== Accessibility && plugin !== AutoScroller),
-        BOARD_ACCESSIBILITY,
+        boardAccessibility,
         BOARD_AUTOSCROLLER,
       ]}
       onDragStart={({ operation }) => {
@@ -599,21 +654,21 @@ export const BoardPageClient = ({
         pendingDragRefresh.current = null;
         const sourceLabel = source
           ? readDragLabel(source.data, source.id)
-          : "Элемент";
+          : t("boardShell.dnd.item");
         setActiveDrag(null);
 
         if (canceled) {
           setBoard(pendingRefresh
             ? mergeBoardRefresh(previous, pendingRefresh)
             : previous);
-          setDndStatus(`Перемещение отменено: ${sourceLabel}.`);
+          setDndStatus(t("boardShell.dnd.dragCanceled", { label: sourceLabel }));
           return;
         }
         if (!source || !target || !isSortable(source) || interactionsDisabled) {
           setBoard(pendingRefresh
             ? mergeBoardRefresh(previous, pendingRefresh)
             : previous);
-          setDndStatus(`Позиция ${sourceLabel} не изменена.`);
+          setDndStatus(t("boardShell.dnd.unchanged", { label: sourceLabel }));
           return;
         }
 
@@ -622,7 +677,7 @@ export const BoardPageClient = ({
           setBoard(pendingRefresh
             ? mergeBoardRefresh(previous, pendingRefresh)
             : previous);
-          setDndStatus(`Позиция ${sourceLabel} не изменена.`);
+          setDndStatus(t("boardShell.dnd.unchanged", { label: sourceLabel }));
           return;
         }
 
@@ -630,8 +685,7 @@ export const BoardPageClient = ({
           setBoard(mergeBoardRefresh(previous, pendingRefresh));
           setActionError({
             key: "dnd:move",
-            message:
-              "Перемещение отменено. Доска изменилась у другого участника. Повторите действие.",
+            message: t("boardShell.dnd.changedByParticipant"),
           });
           return;
         }
@@ -649,7 +703,7 @@ export const BoardPageClient = ({
               column.id === parsedSource.columnId);
             if (initialIndex === targetIndex) {
               setBoard(previous);
-              setDndStatus(`Позиция ${sourceLabel} не изменена.`);
+              setDndStatus(t("boardShell.dnd.unchanged", { label: sourceLabel }));
               return;
             }
             const optimistic = moveBoardSnapshot(previous, {
@@ -666,7 +720,7 @@ export const BoardPageClient = ({
               optimistic,
               path: `/api/boards/${boardId}/columns/${parsedSource.columnId}/move`,
               body: { placement, expectedRevision: previous.revision },
-              successMessage: "Порядок колонок обновлён",
+              successKey: "boardShell.dnd.columnsUpdated",
             });
             return;
           }
@@ -674,26 +728,26 @@ export const BoardPageClient = ({
           if (parsedSource.namespace === "ITEM") {
             const sourceColumn = findItemColumn(previous, parsedSource.item);
             if (!sourceColumn) {
-              throw new Error("Перемещаемый элемент больше не существует");
+              throw new LocalizedDndError(t("boardShell.dnd.itemMissing"));
             }
             const targetColumn = findItemColumn(preview, parsedSource.item);
             const targetColumnId = targetColumn?.id;
             const targetIndex = targetColumn?.items.findIndex((item) =>
               item.kind === parsedSource.item.kind && item.id === parsedSource.item.id) ?? -1;
             if (!targetColumn || targetColumn.nextCursor !== null) {
-              throw new Error("Сначала загрузите все карточки целевой колонки");
+              throw new LocalizedDndError(t("boardShell.dnd.loadTargetColumn"));
             }
             if (sourceColumn.nextCursor !== null) {
-              throw new Error("Сначала загрузите все карточки исходной колонки");
+              throw new LocalizedDndError(t("boardShell.dnd.loadSourceColumn"));
             }
             const sourceIndex = sourceColumn.items.findIndex((item) =>
               item.kind === parsedSource.item.kind && item.id === parsedSource.item.id);
             if (targetIndex < 0 || sourceIndex < 0 || !targetColumnId) {
-              throw new Error("Не удалось вычислить новую позицию");
+              throw new LocalizedDndError(t("boardShell.dnd.computeFailed"));
             }
             if (sourceColumn.id === targetColumnId && sourceIndex === targetIndex) {
               setBoard(previous);
-              setDndStatus(`Позиция ${sourceLabel} не изменена.`);
+              setDndStatus(t("boardShell.dnd.unchanged", { label: sourceLabel }));
               return;
             }
 
@@ -701,7 +755,7 @@ export const BoardPageClient = ({
               .find((column) => column.id === targetColumnId)
               ?.items.map(itemRef);
             if (!finalItems) {
-              throw new Error("Не удалось вычислить новую позицию");
+              throw new LocalizedDndError(t("boardShell.dnd.computeFailed"));
             }
             const placement = buildItemPlacement(finalItems, parsedSource.item);
             const resource = parsedSource.item.kind === "CARD" ? "cards" : "groups";
@@ -714,9 +768,9 @@ export const BoardPageClient = ({
                 placement,
                 expectedRevision: previous.revision,
               },
-              successMessage: parsedSource.item.kind === "CARD"
-                ? "Карточка перемещена"
-                : "Группа перемещена",
+              successKey: parsedSource.item.kind === "CARD"
+                ? "boardShell.dnd.cardMoved"
+                : "boardShell.dnd.groupMoved",
             });
             return;
           }
@@ -733,7 +787,7 @@ export const BoardPageClient = ({
               item.id === parsedSource.actionItemId);
             if (initialIndex === targetIndex) {
               setBoard(previous);
-              setDndStatus(`Позиция ${sourceLabel} не изменена.`);
+              setDndStatus(t("boardShell.dnd.unchanged", { label: sourceLabel }));
               return;
             }
             const optimistic = moveBoardSnapshot(previous, {
@@ -750,17 +804,17 @@ export const BoardPageClient = ({
               optimistic,
               path: `/api/boards/${boardId}/action-items/${parsedSource.actionItemId}/move`,
               body: { placement, expectedRevision: previous.revision },
-              successMessage: "Порядок решений обновлён",
+              successKey: "boardShell.dnd.actionsUpdated",
             });
           }
         } catch (dragError) {
-          const message = dragError instanceof Error
+          const message = dragError instanceof LocalizedDndError
             ? dragError.message
-            : "Не удалось вычислить новую позицию";
+            : t("boardShell.dnd.computeFailed");
           setBoard(previous);
           setActionError({
             key: "dnd:move",
-            message: `Перемещение отменено. ${message}`,
+            message: t("boardShell.dnd.canceledWithError", { message }),
           });
           void load();
         }
@@ -790,8 +844,7 @@ export const BoardPageClient = ({
           {dndStatus}
         </div>
         <p id="board-dnd-instructions" className="sr-only">
-          Нажмите Пробел или Enter, чтобы начать перемещение. Используйте стрелки,
-          затем Пробел или Enter для подтверждения. Escape отменяет перемещение.
+          {t("boardShell.dnd.instructions")}
         </p>
 
         <BoardColumns
@@ -815,7 +868,7 @@ export const BoardPageClient = ({
         {submitting === "dnd:move" ? (
           <div className="pointer-events-none fixed right-[calc(1rem+env(safe-area-inset-right))] bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-2 rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
             <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-            Сохраняем порядок
+            {t("boardShell.dnd.saving")}
           </div>
         ) : null}
       </main>

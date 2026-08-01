@@ -21,6 +21,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { readApiError } from "@/i18n/api-errors";
+import type { Locale } from "@/i18n/locales";
+import type { MessageKey } from "@/i18n/messages";
+import { useI18n } from "@/i18n/provider";
+import type { Translate } from "@/i18n/translate";
 import type { BoardSnapshot } from "@/lib/pagination/board-state";
 
 type SettingsSection = Extract<
@@ -35,10 +40,9 @@ type ColumnDraft = {
 
 type DeleteStrategy = "" | "moveCards" | "deleteCards";
 
-type ApiErrorPayload = {
-  error?: {
-    message?: string;
-  };
+type LocalizedError = {
+  locale: Locale;
+  message: string;
 };
 
 class PanelRequestError extends Error {
@@ -55,7 +59,8 @@ const jsonRequest = async (
   path: string,
   method: "POST" | "PATCH" | "DELETE",
   body: unknown,
-  fallback: string,
+  t: Translate,
+  fallbackKey: MessageKey,
 ): Promise<unknown> => {
   let response: Response;
 
@@ -66,15 +71,17 @@ const jsonRequest = async (
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error(`${fallback} Проверьте соединение.`);
+    throw new Error(t("errors.network"));
   }
 
-  const data = (await response.json().catch(() => null)) as ApiErrorPayload | null;
   if (!response.ok) {
-    throw new PanelRequestError(data?.error?.message ?? fallback, response.status);
+    throw new PanelRequestError(
+      await readApiError(response, t, fallbackKey),
+      response.status,
+    );
   }
 
-  return data;
+  return response.json().catch(() => null);
 };
 
 const checkboxClassName =
@@ -102,8 +109,12 @@ export const BoardSettingsContent = ({
   focusedColumnId?: string | null;
   disabled?: boolean;
 }) => {
+  const { formatNumber, locale, t } = useI18n();
+  const i18nRef = useRef({ locale, t });
   const [action, setAction] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Partial<Record<SettingsSection, string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<SettingsSection, LocalizedError>>
+  >({});
   const [title, setTitle] = useState(board.title);
   const [cardsEnabled, setCardsEnabled] = useState(board.settings.cardsEnabled);
   const [votingEnabled, setVotingEnabled] = useState(board.settings.votingEnabled);
@@ -118,6 +129,10 @@ export const BoardSettingsContent = ({
   const [resetOpen, setResetOpen] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
   const wasOpen = useRef(false);
+
+  useEffect(() => {
+    i18nRef.current = { locale, t };
+  }, [locale, t]);
 
   useEffect(() => {
     if (!open || section !== "columns" || !focusedColumnId) {
@@ -165,23 +180,33 @@ export const BoardSettingsContent = ({
 
   const busy = disabled || action !== null;
 
-  const setSectionError = (target: SettingsSection, message: string | null) => {
+  const setSectionError = (
+    target: SettingsSection,
+    message: string | null,
+    errorLocale: Locale = locale,
+  ) => {
     setErrors((current) => {
       if (message === null) {
         const next = { ...current };
         delete next[target];
         return next;
       }
-      return { ...current, [target]: message };
+      return { ...current, [target]: { locale: errorLocale, message } };
     });
+  };
+
+  const sectionError = (target: SettingsSection): string | null => {
+    const error = errors[target];
+    return error?.locale === locale ? error.message : null;
   };
 
   const runMutation = async <Result,>(
     target: SettingsSection,
     key: string,
     operation: () => Promise<Result>,
-    successMessage: string,
+    successKey: MessageKey,
   ): Promise<Result | null> => {
+    const operationLocale = locale;
     setAction(key);
     setSectionError(target, null);
 
@@ -190,13 +215,15 @@ export const BoardSettingsContent = ({
       try {
         await onChanged();
       } catch {
+        const currentI18n = i18nRef.current;
         setSectionError(
           target,
-          "Изменение сохранено, но обновить доску не удалось. Проверьте соединение.",
+          currentI18n.t("settings.errors.savedRefreshFailed"),
+          currentI18n.locale,
         );
         return result;
       }
-      toast.success(successMessage);
+      toast.success(i18nRef.current.t(successKey));
       return result;
     } catch (error) {
       if (error instanceof PanelRequestError && error.status === 409) {
@@ -208,7 +235,8 @@ export const BoardSettingsContent = ({
       }
       setSectionError(
         target,
-        error instanceof Error ? error.message : "Не удалось выполнить действие.",
+        error instanceof Error ? error.message : t("settings.errors.actionFailed"),
+        operationLocale,
       );
       return null;
     } finally {
@@ -240,9 +268,10 @@ export const BoardSettingsContent = ({
           votingEnabled,
           readOnly,
         },
-        "Не удалось сохранить настройки доски.",
+        t,
+        "settings.errors.saveBoard",
       ),
-      "Настройки доски сохранены",
+      "settings.general.savedToast",
     );
   };
 
@@ -275,9 +304,10 @@ export const BoardSettingsContent = ({
           },
           expectedRevision: board.revision,
         },
-        "Не удалось создать колонку.",
+        t,
+        "settings.errors.createColumn",
       ),
-      "Колонка создана",
+      "settings.columns.createdToast",
     );
 
     if (result !== null) {
@@ -329,9 +359,10 @@ export const BoardSettingsContent = ({
         `/api/boards/${boardId}/columns/${columnId}`,
         "PATCH",
         payload,
-        "Не удалось сохранить колонку.",
+        t,
+        "settings.errors.saveColumn",
       ),
-      "Колонка обновлена",
+      "settings.columns.updatedToast",
     );
   };
 
@@ -356,7 +387,7 @@ export const BoardSettingsContent = ({
     if (!selectedDeleteColumnIsEmpty && !board.settings.cardsEnabled) {
       setSectionError(
         "columns",
-        "Сначала включите и сохраните сбор карточек, чтобы обработать содержимое колонки.",
+        t("settings.columns.enableCardsFirst"),
       );
       return;
     }
@@ -374,7 +405,7 @@ export const BoardSettingsContent = ({
         expectedRevision: board.revision,
       };
     } else if (deleteStrategy === "deleteCards") {
-      if (deleteCardsConfirmation !== "УДАЛИТЬ") {
+      if (deleteCardsConfirmation !== t("settings.columns.deleteToken")) {
         return;
       }
       payload = {
@@ -393,9 +424,10 @@ export const BoardSettingsContent = ({
         `/api/boards/${boardId}/columns/${selectedDeleteColumn.id}`,
         "DELETE",
         payload,
-        "Не удалось удалить колонку.",
+        t,
+        "settings.errors.deleteColumn",
       ),
-      "Колонка удалена",
+      "settings.columns.deletedToast",
     );
 
     if (result !== null) {
@@ -404,7 +436,7 @@ export const BoardSettingsContent = ({
   };
 
   const resetVotes = async () => {
-    if (resetConfirmation !== "СБРОСИТЬ") {
+    if (resetConfirmation !== t("settings.danger.resetToken")) {
       return;
     }
 
@@ -418,9 +450,10 @@ export const BoardSettingsContent = ({
           confirmation: "RESET_VOTES",
           expectedRevision: board.revision,
         },
-        "Не удалось сбросить голоса.",
+        t,
+        "settings.errors.resetVotes",
       ),
-      "Все голоса сброшены",
+      "settings.danger.resetToast",
     );
 
     if (result !== null) {
@@ -434,20 +467,21 @@ export const BoardSettingsContent = ({
       <section className="space-y-6" aria-labelledby="board-settings-heading">
         <div className="space-y-1">
           <h2 id="board-settings-heading" className={sectionHeadingClassName}>
-            Основное
+            {t("settings.general.heading")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Название и режимы работы ретроспективы.
+            {t("settings.general.description")}
           </p>
         </div>
 
-        {errors.general ? (
+        {sectionError("general") ? (
           <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            {errors.general}
+            {sectionError("general")}
           </p>
         ) : null}
 
         <form
+          noValidate
           className="space-y-6"
           onSubmit={(event) => {
             event.preventDefault();
@@ -456,7 +490,7 @@ export const BoardSettingsContent = ({
         >
           <div className="space-y-2">
             <label htmlFor="board-settings-title" className="text-sm font-medium">
-              Название доски
+              {t("settings.general.boardTitle")}
             </label>
             <Input
               id="board-settings-title"
@@ -469,7 +503,7 @@ export const BoardSettingsContent = ({
             />
             {titleInvalid ? (
               <p id="board-settings-title-error" className="text-xs text-destructive">
-                Введите от 1 до 120 символов.
+                {t("settings.general.titleValidation")}
               </p>
             ) : null}
           </div>
@@ -478,7 +512,7 @@ export const BoardSettingsContent = ({
             className="divide-y rounded-lg border"
             disabled={busy || !board.capabilities.canManageSettings}
           >
-            <legend className="sr-only">Режимы доски</legend>
+            <legend className="sr-only">{t("settings.general.modesLegend")}</legend>
             <label className="flex cursor-pointer items-start gap-3 p-4 text-sm">
               <input
                 type="checkbox"
@@ -487,9 +521,9 @@ export const BoardSettingsContent = ({
                 onChange={(event) => setCardsEnabled(event.target.checked)}
               />
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">Сбор карточек</span>
+                <span className="block font-medium">{t("settings.general.cardsTitle")}</span>
                 <span className="mt-0.5 block text-muted-foreground">
-                  Команда может добавлять и изменять доступные ей карточки.
+                  {t("settings.general.cardsDescription")}
                 </span>
               </span>
             </label>
@@ -501,9 +535,9 @@ export const BoardSettingsContent = ({
                 onChange={(event) => setVotingEnabled(event.target.checked)}
               />
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">Голосование</span>
+                <span className="block font-medium">{t("settings.general.votingTitle")}</span>
                 <span className="mt-0.5 block text-muted-foreground">
-                  Участники могут ставить и снимать голоса в пределах лимита колонки.
+                  {t("settings.general.votingDescription")}
                 </span>
               </span>
             </label>
@@ -515,9 +549,9 @@ export const BoardSettingsContent = ({
                 onChange={(event) => setReadOnly(event.target.checked)}
               />
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">Только чтение</span>
+                <span className="block font-medium">{t("settings.general.readOnlyTitle")}</span>
                 <span className="mt-0.5 block text-muted-foreground">
-                  Содержимое нельзя менять, но экспорт и управление доступом остаются доступны.
+                  {t("settings.general.readOnlyDescription")}
                 </span>
               </span>
             </label>
@@ -525,7 +559,9 @@ export const BoardSettingsContent = ({
 
           <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-3 border-t bg-background px-1 py-4">
             <p className="text-xs text-muted-foreground" aria-live="polite">
-              {boardSettingsChanged ? "Есть несохранённые изменения" : "Все изменения сохранены"}
+              {boardSettingsChanged
+                ? t("settings.general.unsaved")
+                : t("settings.general.saved")}
             </p>
             <Button
               type="submit"
@@ -539,7 +575,7 @@ export const BoardSettingsContent = ({
               {action === "board-settings"
                 ? <Loader2 className="size-4 animate-spin" />
                 : <Save className="size-4" />}
-              Сохранить настройки
+              {t("settings.general.saveButton")}
             </Button>
           </div>
         </form>
@@ -553,24 +589,24 @@ export const BoardSettingsContent = ({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <h2 id="columns-settings-heading" className={sectionHeadingClassName}>
-              Колонки
+              {t("settings.columns.heading")}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Название и лимит голосов настраиваются отдельно.
+              {t("settings.columns.description")}
             </p>
           </div>
-          <Badge variant="outline">{board.columns.length}</Badge>
+          <Badge variant="outline">{formatNumber(board.columns.length)}</Badge>
         </div>
 
-        {errors.columns && selectedDeleteColumn === null ? (
+        {sectionError("columns") && selectedDeleteColumn === null ? (
           <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-            {errors.columns}
+            {sectionError("columns")}
           </p>
         ) : null}
 
         {!board.capabilities.canManageColumns ? (
           <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-            Снимите режим «Только чтение» в разделе «Основное», чтобы изменить колонки.
+            {t("settings.columns.readOnlyNotice")}
           </p>
         ) : null}
 
@@ -593,6 +629,7 @@ export const BoardSettingsContent = ({
             return (
               <li key={column.id} className="p-4">
                 <form
+                  noValidate
                   className="space-y-3"
                   onSubmit={(event) => {
                     event.preventDefault();
@@ -602,7 +639,7 @@ export const BoardSettingsContent = ({
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6.5rem]">
                     <div className="space-y-2">
                       <label htmlFor={`column-title-${column.id}`} className="text-xs font-medium text-muted-foreground">
-                        Название
+                        {t("settings.columns.titleLabel")}
                       </label>
                       <Input
                         id={`column-title-${column.id}`}
@@ -618,7 +655,7 @@ export const BoardSettingsContent = ({
                     </div>
                     <div className="space-y-2">
                       <label htmlFor={`column-vote-limit-${column.id}`} className="text-xs font-medium text-muted-foreground">
-                        Голосов
+                        {t("settings.columns.voteLimitLabel")}
                       </label>
                       <Input
                         id={`column-vote-limit-${column.id}`}
@@ -640,7 +677,10 @@ export const BoardSettingsContent = ({
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
-                      Элементов: {column.totalCount}
+                      {t("settings.columns.itemCount", {
+                        count: column.totalCount,
+                        formattedCount: formatNumber(column.totalCount),
+                      })}
                     </span>
                     <div className="flex items-center gap-1">
                       <Button
@@ -655,7 +695,7 @@ export const BoardSettingsContent = ({
                         onClick={() => beginDeleteColumn(column.id)}
                       >
                         <Trash2 className="size-4" />
-                        Удалить
+                        {t("settings.columns.deleteButton")}
                       </Button>
                       <Button
                         type="submit"
@@ -671,7 +711,7 @@ export const BoardSettingsContent = ({
                         {action === `save-column:${column.id}`
                           ? <Loader2 className="size-4 animate-spin" />
                           : <Save className="size-4" />}
-                        Сохранить
+                        {t("settings.columns.saveButton")}
                       </Button>
                     </div>
                   </div>
@@ -682,6 +722,7 @@ export const BoardSettingsContent = ({
         </ul>
 
         <form
+          noValidate
           className="space-y-4 rounded-lg border bg-secondary/35 p-4"
           onSubmit={(event) => {
             event.preventDefault();
@@ -689,15 +730,15 @@ export const BoardSettingsContent = ({
           }}
         >
           <div>
-            <h3 className="text-sm font-semibold">Новая колонка</h3>
+            <h3 className="text-sm font-semibold">{t("settings.columns.newHeading")}</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Она появится перед фиксированной колонкой «Решения».
+              {t("settings.columns.newDescription")}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6.5rem]">
             <div className="space-y-2">
               <label htmlFor="new-column-title" className="text-xs font-medium text-muted-foreground">
-                Название
+                {t("settings.columns.titleLabel")}
               </label>
               <Input
                 id="new-column-title"
@@ -709,7 +750,7 @@ export const BoardSettingsContent = ({
             </div>
             <div className="space-y-2">
               <label htmlFor="new-column-vote-limit" className="text-xs font-medium text-muted-foreground">
-                Голосов
+                {t("settings.columns.voteLimitLabel")}
               </label>
               <Input
                 id="new-column-vote-limit"
@@ -736,7 +777,7 @@ export const BoardSettingsContent = ({
             {action === "create-column"
               ? <Loader2 className="size-4 animate-spin" />
               : <Plus className="size-4" />}
-            Добавить колонку
+            {t("settings.columns.addButton")}
           </Button>
         </form>
 
@@ -750,11 +791,13 @@ export const BoardSettingsContent = ({
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Удалить колонку?</DialogTitle>
+              <DialogTitle>{t("settings.columns.deleteTitle")}</DialogTitle>
               <DialogDescription>
                 {selectedDeleteColumn
-                  ? `Колонка «${selectedDeleteColumn.title}» будет удалена.`
-                  : "Колонка будет удалена."}
+                  ? t("settings.columns.deleteNamedDescription", {
+                    column: selectedDeleteColumn.title,
+                  })
+                  : t("settings.columns.deleteDescription")}
               </DialogDescription>
             </DialogHeader>
 
@@ -762,12 +805,12 @@ export const BoardSettingsContent = ({
               <div className="space-y-4">
                 {!board.settings.cardsEnabled ? (
                   <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-                    Сначала включите и сохраните сбор карточек, чтобы обработать содержимое.
+                    {t("settings.columns.enableCardsFirst")}
                   </p>
                 ) : null}
                 <div className="space-y-2">
                   <label htmlFor="delete-column-strategy" className="text-sm font-medium">
-                    Что сделать с содержимым
+                    {t("settings.columns.strategyLabel")}
                   </label>
                   <select
                     id="delete-column-strategy"
@@ -783,16 +826,16 @@ export const BoardSettingsContent = ({
                       setDeleteCardsConfirmation("");
                     }}
                   >
-                    <option value="">Выберите действие</option>
-                    <option value="moveCards">Переместить в другую колонку</option>
-                    <option value="deleteCards">Удалить вместе с карточками</option>
+                    <option value="">{t("settings.columns.chooseAction")}</option>
+                    <option value="moveCards">{t("settings.columns.moveCards")}</option>
+                    <option value="deleteCards">{t("settings.columns.deleteCards")}</option>
                   </select>
                 </div>
 
                 {deleteStrategy === "moveCards" ? (
                   <div className="space-y-2">
                     <label htmlFor="delete-column-target" className="text-sm font-medium">
-                      Целевая колонка
+                      {t("settings.columns.targetLabel")}
                     </label>
                     <select
                       id="delete-column-target"
@@ -801,7 +844,7 @@ export const BoardSettingsContent = ({
                       disabled={busy}
                       onChange={(event) => setDeleteTargetColumnId(event.target.value)}
                     >
-                      <option value="">Выберите колонку</option>
+                      <option value="">{t("settings.columns.chooseTarget")}</option>
                       {board.columns
                         .filter((candidate) => candidate.id !== selectedDeleteColumn.id)
                         .map((candidate) => (
@@ -811,7 +854,7 @@ export const BoardSettingsContent = ({
                         ))}
                     </select>
                     <p className="text-xs text-muted-foreground">
-                      Перенос отменится, если голоса не помещаются в лимит целевой колонки.
+                      {t("settings.columns.moveLimitWarning")}
                     </p>
                   </div>
                 ) : null}
@@ -819,7 +862,9 @@ export const BoardSettingsContent = ({
                 {deleteStrategy === "deleteCards" ? (
                   <div className="space-y-2">
                     <label htmlFor="delete-column-confirmation" className="text-sm font-medium text-destructive">
-                      Введите УДАЛИТЬ
+                      {t("settings.columns.deleteTokenPrompt", {
+                        token: t("settings.columns.deleteToken"),
+                      })}
                     </label>
                     <Input
                       id="delete-column-confirmation"
@@ -833,13 +878,13 @@ export const BoardSettingsContent = ({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Колонка пуста. Это действие нельзя отменить.
+                {t("settings.columns.emptyDescription")}
               </p>
             )}
 
-            {errors.columns ? (
+            {sectionError("columns") ? (
               <p role="alert" className="text-sm text-destructive">
-                {errors.columns}
+                {sectionError("columns")}
               </p>
             ) : null}
 
@@ -850,7 +895,7 @@ export const BoardSettingsContent = ({
                 disabled={busy}
                 onClick={() => setDeleteColumnId(null)}
               >
-                Отмена
+                {t("common.cancel")}
               </Button>
               <Button
                 type="button"
@@ -860,14 +905,15 @@ export const BoardSettingsContent = ({
                   || (!selectedDeleteColumnIsEmpty && !board.settings.cardsEnabled)
                   || (!selectedDeleteColumnIsEmpty && deleteStrategy === "")
                   || (deleteStrategy === "moveCards" && !deleteTargetColumnId)
-                  || (deleteStrategy === "deleteCards" && deleteCardsConfirmation !== "УДАЛИТЬ")
+                  || (deleteStrategy === "deleteCards"
+                    && deleteCardsConfirmation !== t("settings.columns.deleteToken"))
                 }
                 onClick={() => void deleteColumn()}
               >
                 {action?.startsWith("delete-column:")
                   ? <Loader2 className="size-4 animate-spin" />
                   : <Trash2 className="size-4" />}
-                Удалить колонку
+                {t("settings.columns.deleteConfirmButton")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -880,24 +926,24 @@ export const BoardSettingsContent = ({
     <section className="space-y-6" aria-labelledby="reset-votes-heading">
       <div className="space-y-1">
         <h2 id="reset-votes-heading" className={sectionHeadingClassName}>
-          Опасные действия
+          {t("settings.danger.heading")}
         </h2>
         <p className="text-sm text-muted-foreground">
-          Эти изменения нельзя отменить.
+          {t("settings.danger.description")}
         </p>
       </div>
 
-      {errors.danger && !resetOpen ? (
+      {sectionError("danger") && !resetOpen ? (
         <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {errors.danger}
+          {sectionError("danger")}
         </p>
       ) : null}
 
       <div className="flex items-start justify-between gap-4 border-b pb-5">
         <div className="min-w-0">
-          <h3 className="text-sm font-medium">Сбросить все голоса</h3>
+          <h3 className="text-sm font-medium">{t("settings.danger.resetTitle")}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Удаляет голоса во всех feedback-колонках.
+            {t("settings.danger.resetDescription")}
           </p>
         </div>
         <Button
@@ -911,13 +957,13 @@ export const BoardSettingsContent = ({
           }}
         >
           <RotateCcw className="size-4" />
-          Сбросить
+          {t("settings.danger.resetButton")}
         </Button>
       </div>
 
       {!board.capabilities.canResetVotes ? (
         <p className="text-xs text-muted-foreground">
-          Сброс недоступен, пока включён режим «Только чтение».
+          {t("settings.danger.resetUnavailable")}
         </p>
       ) : null}
 
@@ -931,14 +977,16 @@ export const BoardSettingsContent = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Сбросить все голоса?</DialogTitle>
+            <DialogTitle>{t("settings.danger.confirmTitle")}</DialogTitle>
             <DialogDescription>
-              Голоса во всех колонках будут удалены без возможности восстановления.
+              {t("settings.danger.confirmDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <label htmlFor="reset-votes-confirmation" className="text-sm font-medium">
-              Введите СБРОСИТЬ для подтверждения
+              {t("settings.danger.resetTokenPrompt", {
+                token: t("settings.danger.resetToken"),
+              })}
             </label>
             <Input
               id="reset-votes-confirmation"
@@ -948,9 +996,9 @@ export const BoardSettingsContent = ({
               onChange={(event) => setResetConfirmation(event.target.value)}
             />
           </div>
-          {errors.danger ? (
+          {sectionError("danger") ? (
             <p role="alert" className="text-sm text-destructive">
-              {errors.danger}
+              {sectionError("danger")}
             </p>
           ) : null}
           <DialogFooter>
@@ -960,18 +1008,21 @@ export const BoardSettingsContent = ({
               disabled={action === "reset-votes"}
               onClick={() => setResetOpen(false)}
             >
-              Отмена
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
               variant="destructive"
-              disabled={action === "reset-votes" || resetConfirmation !== "СБРОСИТЬ"}
+              disabled={
+                action === "reset-votes"
+                || resetConfirmation !== t("settings.danger.resetToken")
+              }
               onClick={() => void resetVotes()}
             >
               {action === "reset-votes"
                 ? <Loader2 className="size-4 animate-spin" />
                 : <RotateCcw className="size-4" />}
-              Сбросить голоса
+              {t("settings.danger.confirmButton")}
             </Button>
           </DialogFooter>
         </DialogContent>

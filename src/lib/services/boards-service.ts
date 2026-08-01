@@ -66,30 +66,30 @@ type LegacyFeedbackColumn = {
   voteLimit: number;
 };
 
-const boardNotFound = () => new ApiError(404, "BOARD_NOT_FOUND", "Доска не найдена");
+const boardNotFound = () => new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
 const columnVoteLimitReached = (columnId?: string, limit = 3) => new ApiError(
   422,
   "COLUMN_VOTE_LIMIT_REACHED",
   limit === 0
-    ? "В этой колонке голосование недоступно."
-    : "В этой колонке уже использованы все доступные лайки.",
+    ? "Voting is not available in this column."
+    : "No votes remain in this column.",
   columnId === undefined ? undefined : { columnId, limit },
 );
 const invalidCardCursor = () => new ApiError(
   400,
   "INVALID_CURSOR",
-  "Курсор не относится к выбранной колонке доски",
+  "The cursor does not belong to the selected board column.",
 );
 const boardExportLimitExceeded = (cardLimit: number) => new ApiError(
   422,
   "BOARD_EXPORT_LIMIT_EXCEEDED",
-  "Доска превышает безопасный размер экспорта. Обратитесь к оператору.",
+  "The board is too large to export safely.",
   { cardLimit, voteLimit: MAX_BOARD_TOTAL_VOTE_RECORDS },
 );
 const boardCardLimitReached = (cardLimit: number) => new ApiError(
   422,
   "BOARD_CARD_LIMIT_REACHED",
-  `На доске уже достигнут лимит в ${cardLimit} карточек.`,
+  `This board has reached its limit of ${cardLimit} cards.`,
   { limit: cardLimit },
 );
 
@@ -99,7 +99,7 @@ const assertCardPageLimit = (limit: number): void => {
   }
 };
 
-const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Колонка не найдена");
+const columnNotFound = () => new ApiError(404, "COLUMN_NOT_FOUND", "Column not found.");
 
 const getLegacyFeedbackColumns = async (
   tx: Prisma.TransactionClient,
@@ -327,7 +327,7 @@ export const createBoard = async (visitorPayload: string) => {
   const expiresAt = new Date(
     createdAt.getTime() + getBoardRetentionDays() * 24 * 60 * 60 * 1000,
   );
-  const title = `Ретроспектива ${boardId.slice(0, 8).toLowerCase()}`;
+  const title = `Retrospective ${boardId.slice(0, 8).toLowerCase()}`;
 
   return withContentTransaction(async (tx) => {
     const session = await getOrCreateSessionInTransaction(tx, visitorPayload, { now: createdAt });
@@ -343,7 +343,7 @@ export const createBoard = async (visitorPayload: string) => {
       throw new ApiError(
         401,
         "ANONYMOUS_SESSION_INACTIVE",
-        "Анонимная сессия недействительна. Обновите страницу и повторите запрос.",
+        "Your anonymous session is no longer active. Refresh and try again.",
       );
     }
 
@@ -359,7 +359,7 @@ export const createBoard = async (visitorPayload: string) => {
       throw new ApiError(
         422,
         "SESSION_BOARD_LIMIT_REACHED",
-        `Одна анонимная сессия может владеть не более чем ${MAX_ACTIVE_OWNED_BOARDS_PER_SESSION} активными досками.`,
+        `An anonymous session can own at most ${MAX_ACTIVE_OWNED_BOARDS_PER_SESSION} active boards.`,
         { limit: MAX_ACTIVE_OWNED_BOARDS_PER_SESSION },
       );
     }
@@ -569,15 +569,15 @@ export const likeCard = async (
           select: { id: true },
         });
         if (actionItem) {
-          throw new ApiError(403, "LIKES_NOT_ALLOWED", "Лайки для этой колонки запрещены");
+          throw new ApiError(403, "LIKES_NOT_ALLOWED", "Voting is not available in this column.");
         }
-        throw new ApiError(404, "CARD_NOT_FOUND", "Карточка не найдена");
+        throw new ApiError(404, "CARD_NOT_FOUND", "Card not found.");
       }
 
       const feedbackColumns = await getLegacyFeedbackColumns(tx, boardId);
       const feedbackColumn = feedbackColumns.find((column) => column.id === card.columnId);
       if (!feedbackColumn) {
-        throw new ApiError(403, "LIKES_NOT_ALLOWED", "Лайки для этой колонки запрещены");
+        throw new ApiError(403, "LIKES_NOT_ALLOWED", "Voting is not available in this column.");
       }
 
       const existing = await tx.vote.findUnique({
@@ -590,7 +590,7 @@ export const likeCard = async (
       });
 
       if (existing) {
-        throw new ApiError(409, "LIKE_ALREADY_EXISTS", "Вы уже лайкнули эту карточку");
+        throw new ApiError(409, "LIKE_ALREADY_EXISTS", "You have already voted for this card.");
       }
 
       const usedQuotaSlots = await tx.vote.findMany({
@@ -638,7 +638,7 @@ export const likeCard = async (
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      throw new ApiError(409, "LIKE_ALREADY_EXISTS", "Вы уже лайкнули эту карточку");
+      throw new ApiError(409, "LIKE_ALREADY_EXISTS", "You have already voted for this card.");
     }
 
     throw error;

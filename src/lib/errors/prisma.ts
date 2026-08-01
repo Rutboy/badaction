@@ -24,7 +24,7 @@ export const normalizePrismaError = (error: unknown) => {
     return new ApiError(
       503,
       DATABASE_UNAVAILABLE_CODE,
-      "База данных недоступна. Запустите PostgreSQL и повторите запрос.",
+      "The database is unavailable. Try again later.",
     );
   }
 

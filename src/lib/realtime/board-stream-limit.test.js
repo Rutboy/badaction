@@ -15,7 +15,7 @@ const assertStreamLimitError = (operation) => {
     assert.equal(error instanceof ApiError, true);
     assert.equal(error.status, 429);
     assert.equal(error.code, "RATE_LIMIT_EXCEEDED");
-    assert.equal(error.message, "Слишком много одновременных подключений к доске.");
+    assert.equal(error.message, "Too many concurrent connections to this board.");
     assert.deepEqual(error.details, { retryAfterSeconds: 30 });
     return true;
   });

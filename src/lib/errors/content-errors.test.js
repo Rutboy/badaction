@@ -27,7 +27,8 @@ test("content error factories return typed ApiError instances with registry stat
     assert.equal(error.status, status);
     assert.equal(error.code, code);
     assert.equal(error.details, undefined);
-    assert.match(error.message, /[А-Яа-яЁё]/);
+    assert.match(error.message, /[A-Za-z]/);
+    assert.doesNotMatch(error.message, /[А-Яа-яЁё]/);
   }
 });
 
@@ -59,13 +60,13 @@ test("content errors expose only the safe details allowed by the registry", () =
   assert.equal("internalCause" in exportError.details, false);
 });
 
-test("stale revision factory uses the normative Russian message", () => {
+test("stale revision factory uses the safe English fallback message", () => {
   const error = contentErrors.staleBoardRevision("43");
 
   assert.equal(error.status, 409);
   assert.equal(error.code, "STALE_BOARD_REVISION");
   assert.equal(
     error.message,
-    "Состояние доски изменилось. Обновите данные и повторите действие.",
+    "The board changed. Refresh it and try again.",
   );
 });

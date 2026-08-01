@@ -105,7 +105,7 @@ export const moveVotesBetweenColumns = async ({
     throw new ApiError(
       409,
       "VOTE_MOVE_CONFLICT",
-      "Перенос превысит лимит голосов в целевой колонке.",
+      "Moving this item would exceed the target column's vote limit.",
       { targetColumnId },
     );
   }

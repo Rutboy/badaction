@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { readApiError } from "@/i18n/api-errors";
+import { useI18n } from "@/i18n/provider";
 
 export const JoinBoardClient = () => {
   const router = useRouter();
+  const { t } = useI18n();
   const invitationCaptured = useRef(false);
   const displayNameRef = useRef<HTMLInputElement>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -29,12 +32,12 @@ export const JoinBoardClient = () => {
     );
 
     if (!/^[A-Za-z0-9_-]{43}$/.test(invitationToken)) {
-      setError("Приглашение отсутствует или повреждено.");
+      setError(t("join.invalidInvitation"));
       return;
     }
 
     setToken(invitationToken);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (token) {
@@ -44,7 +47,7 @@ export const JoinBoardClient = () => {
 
   const redeem = async () => {
     if (!token) {
-      setError("Приглашение отсутствует или повреждено.");
+      setError(t("join.invalidInvitation"));
       return;
     }
 
@@ -59,19 +62,22 @@ export const JoinBoardClient = () => {
           displayName: displayName.trim() || undefined,
         }),
       });
-      const data = (await response.json().catch(() => null)) as {
-        boardId?: string;
-        error?: { message?: string };
-      } | null;
+      if (!response.ok) {
+        setError(await readApiError(response, t, "join.redeemFailed"));
+        return;
+      }
 
-      if (!response.ok || !data?.boardId) {
-        setError(data?.error?.message ?? "Не удалось принять приглашение.");
+      const data = (await response.json().catch(() => null)) as {
+        boardId?: unknown;
+      } | null;
+      if (typeof data?.boardId !== "string" || data.boardId.length === 0) {
+        setError(t("errors.invalidResponse"));
         return;
       }
 
       router.replace(`/boards/${data.boardId}`);
     } catch {
-      setError("Не удалось принять приглашение. Проверьте соединение.");
+      setError(t("join.redeemNetworkFailed"));
     } finally {
       setLoading(false);
     }
@@ -80,15 +86,18 @@ export const JoinBoardClient = () => {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md items-center px-5 py-12 sm:px-8">
       <section aria-labelledby="join-title" className="w-full">
-        <p className="mb-10 text-sm font-semibold tracking-tight text-primary">badaction</p>
+        <p className="mb-10 text-sm font-semibold tracking-tight text-primary">
+          {t("common.productName")}
+        </p>
         <h1 id="join-title" className="text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">
-          Присоединиться к ретроспективе
+          {t("join.title")}
         </h1>
         <p id="join-description" className="mt-4 text-sm leading-6 text-muted-foreground">
-          Подтвердите вход по приглашению. Имя указывать необязательно.
+          {t("join.description")}
         </p>
 
         <form
+          noValidate
           className="mt-8 space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
@@ -96,7 +105,7 @@ export const JoinBoardClient = () => {
           }}
         >
           <label htmlFor="display-name" className="block text-sm font-medium">
-            Ваше имя <span className="font-normal text-muted-foreground">(необязательно)</span>
+            {t("join.nameLabel")}
           </label>
           <Input
             ref={displayNameRef}
@@ -104,7 +113,7 @@ export const JoinBoardClient = () => {
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
             maxLength={80}
-            placeholder="Например, Алексей"
+            placeholder={t("join.namePlaceholder")}
             disabled={loading || !token}
             aria-describedby={error ? "join-error" : "join-description"}
             className="h-11 bg-card"
@@ -125,7 +134,7 @@ export const JoinBoardClient = () => {
             ) : (
               <LogIn className="size-4" aria-hidden="true" />
             )}
-            {loading ? "Проверяем приглашение..." : "Присоединиться"}
+            {loading ? t("join.submitting") : t("join.submit")}
           </Button>
         </form>
       </section>
