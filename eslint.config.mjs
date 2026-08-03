@@ -1,23 +1,28 @@
-import { FlatCompat } from "@eslint/eslintrc";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
+import { fixupConfigRules } from "@eslint/compat";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
-const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
-const compat = new FlatCompat({
-  baseDirectory: currentDirectory,
-});
-
-const eslintConfig = [
+const eslintConfig = defineConfig([
+  ...fixupConfigRules(nextVitals),
+  ...fixupConfigRules(nextTypescript),
   {
-    ignores: [
-      ".next/**",
-      "coverage/**",
-      "next-env.d.ts",
-      "node_modules/**",
-      "*.tsbuildinfo",
-    ],
+    // Next.js 16 enables new React compiler-oriented rules. Keep the existing
+    // Next.js 15 lint baseline while ESLint itself moves to v10; these rules
+    // can be adopted separately with the component refactors they require.
+    rules: {
+      "react-hooks/error-boundaries": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/set-state-in-effect": "off",
+    },
   },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-];
+  globalIgnores([
+    ".next/**",
+    "coverage/**",
+    "next-env.d.ts",
+    "node_modules/**",
+    "*.tsbuildinfo",
+  ]),
+]);
 
 export default eslintConfig;
