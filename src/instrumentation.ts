@@ -15,9 +15,8 @@ export async function register(): Promise<void> {
       return;
     }
 
-    const { startApplicationLifecycle } = await import(
-      "./lib/runtime/application-lifecycle.ts"
-    );
+    const { startApplicationLifecycle } =
+      await import("./lib/runtime/application-lifecycle.ts");
     startApplicationLifecycle();
   }
 }
