@@ -8,6 +8,7 @@ import {
 } from "../constants/access.ts";
 import { ApiError } from "../errors/api-error-base.ts";
 import { prisma } from "../prisma/client.ts";
+import { isRetryablePrismaTransactionError } from "../prisma/retryable-error.ts";
 import { hmacSha256 } from "../security/hmac.ts";
 import { incrementBoardRevision } from "../realtime/transactional-board-update.ts";
 import {
@@ -56,24 +57,6 @@ const invitationInvalid = () => new ApiError(
   "The invitation is invalid, expired, or has already been used.",
 );
 
-const isTransactionConflict = (error: unknown) => {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === "P2034" || error.code === "P2002") {
-      return true;
-    }
-
-    const sqlState = error.code === "P2010" ? error.meta?.code : undefined;
-    return sqlState === "40001" || sqlState === "40P01";
-  }
-
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const code = "code" in error ? error.code : undefined;
-  return code === "40001" || code === "40P01";
-};
-
 const withSerializableRetry = async <T>(
   operation: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> => {
@@ -83,7 +66,10 @@ const withSerializableRetry = async <T>(
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (error) {
-      if (!isTransactionConflict(error) || attempt === MAX_TRANSACTION_ATTEMPTS - 1) {
+      if (
+        !isRetryablePrismaTransactionError(error, { retryUniqueConstraint: true })
+        || attempt === MAX_TRANSACTION_ATTEMPTS - 1
+      ) {
         throw error;
       }
 

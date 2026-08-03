@@ -4,6 +4,7 @@ import {
   type BoardAccessContext,
 } from "../access/acl-service.ts";
 import { ApiError } from "../errors/api-error-base.ts";
+import { isRetryablePrismaTransactionError } from "../prisma/retryable-error.ts";
 import {
   deriveBoardVisitorId,
   getVisitorTokenSecret,
@@ -82,21 +83,7 @@ export const requireContentVisitorIdentity = (
 const boardNotFound = () => new ApiError(404, "BOARD_NOT_FOUND", "Board not found.");
 
 export const isRetryableContentTransactionError = (error: unknown): boolean => {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === "P2034") {
-      return true;
-    }
-
-    const sqlState = error.code === "P2010" ? error.meta?.code : undefined;
-    return sqlState === "40001" || sqlState === "40P01";
-  }
-
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-
-  const code = "code" in error ? error.code : undefined;
-  return code === "40001" || code === "40P01";
+  return isRetryablePrismaTransactionError(error);
 };
 
 const waitBeforeRetry = async (attempt: number): Promise<void> => {
