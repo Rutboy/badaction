@@ -12,6 +12,14 @@ const policy = {
       optionalOnly: true,
       reason: "reviewed test fixture",
     },
+    {
+      packages: ["excluded-missing-license"],
+      versions: ["1.0.0"],
+      lockfileLicenseMissing: true,
+      verifiedLicense: "MIT",
+      artifactExcluded: true,
+      reason: "reviewed excluded fixture",
+    },
   ],
 };
 
@@ -30,13 +38,14 @@ test("accepts allowlisted licenses and constrained reviewed exceptions", () => {
           license: "LGPL-3.0-or-later",
           optional: true,
         },
+        "node_modules/excluded-missing-license": { version: "1.0.0" },
       },
     },
   });
 
   assert.deepEqual(result.errors, []);
-  assert.equal(result.packageCount, 2);
-  assert.equal(result.reviewed.length, 1);
+  assert.equal(result.packageCount, 3);
+  assert.equal(result.reviewed.length, 2);
 });
 
 test("rejects missing and non-allowlisted dependency licenses", () => {
@@ -69,10 +78,12 @@ test("does not accept a reviewed exception outside its constraints", () => {
           license: "LGPL-3.0-or-later",
           optional: false,
         },
+        "node_modules/excluded-missing-license": { version: "2.0.0" },
       },
     },
   });
 
-  assert.equal(result.errors.length, 1);
+  assert.equal(result.errors.length, 2);
   assert.match(result.errors[0], /not allowlisted/);
+  assert.match(result.errors[1], /missing SPDX license/);
 });

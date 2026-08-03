@@ -89,6 +89,17 @@ test("content transaction retry recognizes only expected transaction SQLSTATEs",
     isRetryableContentTransactionError(knownPrismaError("P2010", { code: "40P01" })),
     true,
   );
+  assert.equal(
+    isRetryableContentTransactionError(knownPrismaError("P2010", {
+      driverAdapterError: {
+        cause: {
+          kind: "TransactionWriteConflict",
+          originalCode: "40001",
+        },
+      },
+    })),
+    true,
+  );
 
   assert.equal(
     isRetryableContentTransactionError(knownPrismaError("P2010", { code: "23505" })),

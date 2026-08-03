@@ -22,7 +22,22 @@ const findReviewedException = ({ packageName, metadata, policy }) =>
     if (!exception.packages.includes(packageName)) {
       return false;
     }
-    if (!exception.licenses.includes(metadata.license)) {
+    if (exception.versions && !exception.versions.includes(metadata.version)) {
+      return false;
+    }
+    if (exception.lockfileLicenseMissing === true) {
+      if (
+        exception.artifactExcluded !== true ||
+        !exception.versions ||
+        typeof exception.verifiedLicense !== "string" ||
+        typeof metadata.license === "string"
+      ) {
+        return false;
+      }
+    } else if (!exception.licenses?.includes(metadata.license)) {
+      return false;
+    }
+    if (exception.artifactExcluded === true && !exception.versions) {
       return false;
     }
     if (exception.devOnly && metadata.dev !== true) {
@@ -63,10 +78,20 @@ export const auditLockfile = ({ lockfile, manifest, policy }) => {
     }
     packageCount += 1;
     const packageName = packageNameFromLockPath(packagePath);
+    const exception = findReviewedException({ packageName, metadata, policy });
     if (typeof metadata.license !== "string" || metadata.license.length === 0) {
-      errors.push(
-        `${packageName}@${metadata.version ?? "unknown"}: missing SPDX license`,
-      );
+      if (!exception) {
+        errors.push(
+          `${packageName}@${metadata.version ?? "unknown"}: missing SPDX license`,
+        );
+        continue;
+      }
+      reviewed.push({
+        packageName,
+        version: metadata.version ?? "unknown",
+        license: `${exception.verifiedLicense} (verified; lockfile metadata missing)`,
+        reason: exception.reason,
+      });
       continue;
     }
 
@@ -78,7 +103,6 @@ export const auditLockfile = ({ lockfile, manifest, policy }) => {
       continue;
     }
 
-    const exception = findReviewedException({ packageName, metadata, policy });
     if (!exception) {
       errors.push(
         `${packageName}@${metadata.version ?? "unknown"}: ${metadata.license} is not allowlisted`,

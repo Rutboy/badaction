@@ -1,3 +1,4 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -41,7 +42,9 @@ export const parseCleanupArguments = (args) => {
 };
 
 const runCleanup = async () => {
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  });
 
   try {
     const batchSize = parseCleanupArguments(process.argv.slice(2));

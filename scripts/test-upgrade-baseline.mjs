@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 const execFileAsync = promisify(execFile);
@@ -98,7 +99,9 @@ const temporaryDirectory = await mkdtemp(join(tmpdir(), "badaction-stage0-upgrad
 const baselinePrismaDirectory = join(temporaryDirectory, "prisma");
 const baselineMigrationsDirectory = join(baselinePrismaDirectory, "migrations");
 const baselineSchemaPath = join(baselinePrismaDirectory, "schema.prisma");
-const admin = new PrismaClient({ datasourceUrl: databaseUrl });
+const admin = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: databaseUrl }),
+});
 let schemaCreated = false;
 
 const runPrisma = async (label, args) => {
@@ -132,7 +135,6 @@ try {
     [
       "datasource db {",
       '  provider = "postgresql"',
-      '  url      = env("DATABASE_URL")',
       "}",
       "",
     ].join("\n"),
@@ -160,16 +162,12 @@ try {
     "execute",
     "--file",
     join(fixtureDirectory, "seed.sql"),
-    "--schema",
-    baselineSchemaPath,
   ]);
   await runPrisma("Frozen baseline assertions", [
     "db",
     "execute",
     "--file",
     join(fixtureDirectory, "assert-baseline.sql"),
-    "--schema",
-    baselineSchemaPath,
   ]);
 
   await runPrisma("Upgrade migration deploy", [
@@ -189,8 +187,6 @@ try {
     "execute",
     "--file",
     join(fixtureDirectory, "assert-after-upgrade.sql"),
-    "--schema",
-    join(rootDirectory, "prisma/schema.prisma"),
   ]);
 
   console.log(

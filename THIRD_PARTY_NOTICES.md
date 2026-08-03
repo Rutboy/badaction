@@ -23,6 +23,14 @@ Primitives monorepo, so the build copies the identical MIT notice shipped by
 the installed Radix packages. Both fallback sets are fail-closed in the build
 script rather than inferred from an arbitrary package with the same SPDX name.
 
+The Prisma 7 CLI requires `@prisma/dev`, whose npm metadata declares ISC but
+does not identify an upstream license file, and Remeda, whose npm tarball omits
+the repository's MIT file. Their reviewed notices are retained as
+`third-party-licenses/prisma-dev.LICENSE` and
+`third-party-licenses/remeda.LICENSE`. Prisma Studio and alternate-driver
+packages that are not used by the PostgreSQL migrator are removed from release
+artifacts and constrained to exact-version, artifact-excluded policy entries.
+
 ## caniuse-lite
 
 The standalone artifact includes unmodified browser compatibility data from the

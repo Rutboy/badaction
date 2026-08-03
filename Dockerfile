@@ -25,8 +25,16 @@ RUN npm run check:standalone
 
 FROM dependencies AS migrator-dependencies
 
-# Keep only the Prisma migration runtime and its required production packages.
-RUN npm prune --omit=dev --omit=optional
+# Keep only the PostgreSQL migration runtime. Prisma 7 eagerly declares UI and
+# alternate-driver packages that `migrate deploy` does not execute; CI verifies
+# both their absence and a real migration against PostgreSQL.
+RUN npm prune --omit=dev --omit=optional \
+  && rm -rf \
+    node_modules/@visx/vendor \
+    node_modules/elkjs \
+    node_modules/postgres \
+    node_modules/robust-predicates \
+    node_modules/seq-queue
 
 FROM base AS migrator
 
@@ -38,6 +46,7 @@ COPY --chown=node:node LICENSE ./LICENSE
 COPY --chown=node:node THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 COPY --chown=node:node third-party-licenses ./third-party-licenses
 COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node prisma.config.ts ./prisma.config.ts
 COPY --chown=node:node scripts/run-container-migrations.mjs ./scripts/run-container-migrations.mjs
 
 USER node

@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 const execFileAsync = promisify(execFile);
@@ -98,7 +99,9 @@ if (!externalServer) {
 
 const admin = externalServer
   ? null
-  : new PrismaClient({ datasourceUrl: databaseUrl });
+  : new PrismaClient({
+      adapter: new PrismaPg({ connectionString: databaseUrl }),
+    });
 let schemaCreated = false;
 let playwrightProcess = null;
 let interruptedSignal = null;
