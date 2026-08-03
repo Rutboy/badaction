@@ -65,7 +65,7 @@
     "zod": "^3.24.3"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/compat": "^2.1.0",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^22.14.1",
@@ -73,8 +73,8 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "eslint": "^9.24.0",
-    "eslint-config-next": "^15.5.21",
+    "eslint": "^10.8.0",
+    "eslint-config-next": "^16.2.12",
     "prettier": "3.9.6",
     "tailwindcss": "^4.1.4",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
