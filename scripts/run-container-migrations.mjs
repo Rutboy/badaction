@@ -3,6 +3,10 @@ import { Client } from "pg";
 
 const runtimeRolePattern = /^[a-z_][a-z0-9_]{0,62}$/;
 
+if (!process.env.DATABASE_URL?.trim()) {
+  throw new Error("DATABASE_URL is required");
+}
+
 const runPrismaDeploy = () =>
   new Promise((resolve, reject) => {
     const child = spawn(
@@ -36,9 +40,6 @@ const readRuntimeRole = () => {
   }
   if (!runtimeRolePattern.test(runtimeRole)) {
     throw new Error("DATABASE_RUNTIME_ROLE must match [a-z_][a-z0-9_]{0,62}");
-  }
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is required");
   }
   return runtimeRole;
 };

@@ -38,6 +38,7 @@ COPY --chown=node:node LICENSE ./LICENSE
 COPY --chown=node:node THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 COPY --chown=node:node third-party-licenses ./third-party-licenses
 COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node prisma.config.ts ./prisma.config.ts
 COPY --chown=node:node scripts/run-container-migrations.mjs ./scripts/run-container-migrations.mjs
 
 USER node

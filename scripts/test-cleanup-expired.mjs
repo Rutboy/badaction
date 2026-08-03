@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { promisify } from "node:util";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 if (process.env.TEST_DATABASE_IS_DISPOSABLE !== "1") {
@@ -11,7 +12,9 @@ if (process.env.TEST_DATABASE_IS_DISPOSABLE !== "1") {
 }
 
 const execFileAsync = promisify(execFile);
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 const credentialHash = () => randomBytes(32).toString("base64url");
 const bucketKey = () => randomBytes(32).toString("hex");
 const now = new Date();
