@@ -28,8 +28,10 @@ export const CardComposer = ({
   const [text, setText] = useState("");
   const [author, setAuthor] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const handledFocusRequestRef = useRef(0);
 
   useEffect(() => {
     if (open) {
@@ -38,6 +40,18 @@ export const CardComposer = ({
   }, [open]);
 
   useEffect(() => setError(null), [locale]);
+
+  useEffect(() => {
+    if (!open || pending || focusRequest === handledFocusRequestRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      handledFocusRequestRef.current = focusRequest;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest, open, pending]);
 
   const close = () => {
     if (pending) return;
@@ -69,13 +83,14 @@ export const CardComposer = ({
     );
     if (!result.ok) {
       setError(result.message);
+      setFocusRequest((current) => current + 1);
       return;
     }
 
     setText("");
     setAuthor("");
     setShowAuthor(false);
-    requestAnimationFrame(() => textareaRef.current?.focus());
+    setFocusRequest((current) => current + 1);
   };
 
   if (!open) {
