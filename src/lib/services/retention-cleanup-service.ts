@@ -5,7 +5,10 @@ import {
   MAX_RETENTION_CLEANUP_BATCH_SIZE,
 } from "../config/retention-cleanup.ts";
 
-const BOARD_CHILD_DELETE_BATCH_SIZE = 10000;
+// Keep each transaction comfortably below the statement timeout even when the
+// database is under load. The queue immediately schedules another chunk until
+// the expired board has no children left.
+const BOARD_CHILD_DELETE_BATCH_SIZE = 2500;
 const BOARD_CLEANUP_BUDGET_MS = 4 * 60 * 1000;
 const BOARD_DELETE_STATEMENT_TIMEOUT = "4s";
 const BOARD_DELETE_TRANSACTION_TIMEOUT_MS = 15000;

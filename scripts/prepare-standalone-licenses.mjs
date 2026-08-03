@@ -115,8 +115,11 @@ export const removeStandaloneEnvironmentFiles = (root = standaloneRoot) => {
   }
 };
 
-export const listRuntimePackages = () => {
-  const nodeModules = resolve(standaloneRoot, "node_modules");
+export const listRuntimePackages = ({
+  root = standaloneRoot,
+  sourceNodeModules = resolve("node_modules"),
+} = {}) => {
+  const nodeModules = resolve(root, "node_modules");
   if (!existsSync(nodeModules)) {
     return [];
   }
@@ -146,6 +149,10 @@ export const listRuntimePackages = () => {
         name: metadata.name,
         version: metadata.version,
         license: metadata.license,
+        sourceDirectory: resolve(
+          sourceNodeModules,
+          relative(nodeModules, directory),
+        ),
       };
     })
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -266,17 +273,22 @@ export const prepareStandaloneLicenses = () => {
   const manifest = [];
   const missing = [];
   for (const runtimePackage of listRuntimePackages()) {
+    const { sourceDirectory, ...runtimePackageMetadata } = runtimePackage;
     const outputDirectory = resolve(
       runtimeLicenseDirectory,
       packageOutputName(runtimePackage.name),
     );
     mkdirSync(outputDirectory, { recursive: true });
-    const notices = collectPackageNotices(runtimePackage, outputDirectory);
+    const notices = collectPackageNotices(
+      runtimePackage,
+      outputDirectory,
+      sourceDirectory,
+    );
     if (notices.length === 0) {
       missing.push(`${runtimePackage.name}@${runtimePackage.version}`);
       continue;
     }
-    manifest.push({ ...runtimePackage, notices });
+    manifest.push({ ...runtimePackageMetadata, notices });
   }
 
   if (missing.length > 0) {
