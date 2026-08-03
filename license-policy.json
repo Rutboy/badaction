@@ -43,6 +43,42 @@
       "reason": "Development/build-only CSS tooling reached through Tailwind; MPL-covered source is not copied into application source."
     },
     {
+      "packages": ["@visx/vendor"],
+      "versions": ["4.0.0-alpha.0"],
+      "licenses": ["MIT and ISC"],
+      "artifactExcluded": true,
+      "reason": "Prisma Studio visualization code is installed with the Prisma 7 CLI but is explicitly removed from the PostgreSQL migrator and absent from the standalone runner; container CI verifies both artifacts."
+    },
+    {
+      "packages": ["elkjs"],
+      "versions": ["0.11.1"],
+      "licenses": ["EPL-2.0"],
+      "artifactExcluded": true,
+      "reason": "Prisma Studio layout code is installed with the Prisma 7 CLI but is explicitly removed from the PostgreSQL migrator and absent from the standalone runner; container CI verifies both artifacts."
+    },
+    {
+      "packages": ["postgres"],
+      "versions": ["3.4.7"],
+      "licenses": ["Unlicense"],
+      "artifactExcluded": true,
+      "reason": "The Prisma local-development driver is not used by migrate deploy, is explicitly removed from the PostgreSQL migrator, and is absent from the standalone runner; container CI verifies both artifacts."
+    },
+    {
+      "packages": ["robust-predicates"],
+      "versions": ["3.0.3"],
+      "licenses": ["Unlicense"],
+      "artifactExcluded": true,
+      "reason": "Geometry code reached only through Prisma Studio is explicitly removed from the PostgreSQL migrator and absent from the standalone runner; container CI verifies both artifacts."
+    },
+    {
+      "packages": ["seq-queue"],
+      "versions": ["0.0.5"],
+      "lockfileLicenseMissing": true,
+      "verifiedLicense": "MIT",
+      "artifactExcluded": true,
+      "reason": "The package's upstream LICENSE is MIT, but npm omits the SPDX field; it is reached through Prisma's unused MySQL driver, explicitly removed from the PostgreSQL migrator, and absent from the standalone runner."
+    },
+    {
       "packages": [
         "@img/sharp-libvips-darwin-arm64",
         "@img/sharp-libvips-darwin-x64",

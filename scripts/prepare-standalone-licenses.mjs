@@ -49,6 +49,20 @@ const fallbackLicenseSources = new Map([
   ["@next/env", { packageName: "next", file: "license.md" }],
   ["client-only", { packageName: "react", file: "LICENSE" }],
   [
+    "@prisma/dev",
+    {
+      sourcePath: "third-party-licenses/prisma-dev.LICENSE",
+      destinationName: "LICENSE-from-package-metadata",
+    },
+  ],
+  [
+    "remeda",
+    {
+      sourcePath: "third-party-licenses/remeda.LICENSE",
+      destinationName: "LICENSE-from-upstream-repository",
+    },
+  ],
+  [
     "react-remove-scroll-bar",
     {
       sourcePath: "third-party-licenses/react-remove-scroll-bar.LICENSE",
@@ -66,6 +80,15 @@ const isNoticeFile = (name) =>
   /^(?:licen[sc]e|copying|notice)(?:\..*)?$/i.test(name);
 const packageOutputName = (name) =>
   name.replace(/^@/, "").replaceAll("/", "__");
+const packageNameFromLockPath = (packagePath) => {
+  const relativeName = packagePath.slice(
+    packagePath.lastIndexOf("node_modules/") + "node_modules/".length,
+  );
+  const segments = relativeName.split("/");
+  return relativeName.startsWith("@")
+    ? segments.slice(0, 2).join("/")
+    : segments[0];
+};
 export const productionPackageOutputName = ({ name, version }) =>
   `${packageOutputName(name)}@${version}`.replaceAll(/[^A-Za-z0-9._@-]/g, "_");
 const isEnvironmentFile = (name) => name === ".env" || name.startsWith(".env.");
@@ -160,6 +183,12 @@ export const listRuntimePackages = ({
 
 export const listProductionPackages = () => {
   const lockfile = readJson(resolve("package-lock.json"));
+  const policy = readJson(resolve("license-policy.json"));
+  const artifactExcludedPackages = new Set(
+    policy.reviewedExceptions
+      .filter((exception) => exception.artifactExcluded === true)
+      .flatMap((exception) => exception.packages),
+  );
   const packages = new Map();
   for (const [packagePath, lockMetadata] of Object.entries(
     lockfile.packages ?? {},
@@ -171,6 +200,10 @@ export const listProductionPackages = () => {
       lockMetadata.devOptional === true ||
       lockMetadata.optional === true
     ) {
+      continue;
+    }
+    const packageName = packageNameFromLockPath(packagePath);
+    if (artifactExcludedPackages.has(packageName)) {
       continue;
     }
     const sourceDirectory = resolve(packagePath);
