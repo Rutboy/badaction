@@ -20,18 +20,22 @@ test(
   async () => {
     const key = `integration:${randomUUID()}`;
     const bucketKey = createHash("sha256").update(key, "utf8").digest("hex");
+    const intervalMs = 60_000;
 
     try {
-      await assertRateLimit(key, 2, 100);
-      await assertRateLimit(key, 2, 100);
+      await assertRateLimit(key, 2, intervalMs);
+      await assertRateLimit(key, 2, intervalMs);
 
       await assert.rejects(
-        () => assertRateLimit(key, 2, 100),
+        () => assertRateLimit(key, 2, intervalMs),
         (error) => error?.code === "RATE_LIMIT_EXCEEDED" && error?.status === 429,
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 110));
-      await assertRateLimit(key, 2, 100);
+      await prisma.rateLimitBucket.update({
+        where: { key: bucketKey },
+        data: { resetAt: new Date(Date.now() - 1_000) },
+      });
+      await assertRateLimit(key, 2, intervalMs);
     } finally {
       await prisma.rateLimitBucket.deleteMany({ where: { key: bucketKey } });
     }
