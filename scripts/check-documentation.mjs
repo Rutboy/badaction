@@ -48,6 +48,7 @@ const errors = [];
 
 const documentationPages = [
   "README.md",
+  "quick-start.md",
   "getting-started.md",
   "deployment.md",
   "configuration.md",
@@ -72,8 +73,12 @@ const requiredFiles = [
   "Dockerfile",
   "docker-compose.yml",
   "docker-compose.production.yml",
+  "docker-compose.quick-start.yml",
   "deploy/production.env.example",
   "deploy/init-production-db.sh",
+  "deploy/install.sh",
+  "deploy/manage.sh",
+  "deploy/caddy/Caddyfile",
   "CONTRIBUTING.md",
   "SECURITY.md",
   "CODE_OF_CONDUCT.md",
@@ -91,13 +96,17 @@ for (const file of requiredFiles) {
   }
 }
 
-if (
-  isExistingFile("deploy/init-production-db.sh") &&
-  (statSync(resolve(repositoryRoot, "deploy/init-production-db.sh")).mode &
-    0o111) ===
-    0
-) {
-  errors.push("deploy/init-production-db.sh must be executable");
+for (const executable of [
+  "deploy/init-production-db.sh",
+  "deploy/install.sh",
+  "deploy/manage.sh",
+]) {
+  if (
+    isExistingFile(executable) &&
+    (statSync(resolve(repositoryRoot, executable)).mode & 0o111) === 0
+  ) {
+    errors.push(`${executable} must be executable`);
+  }
 }
 
 const documentedConfigurationVariables = [
@@ -136,6 +145,8 @@ const documentedConfigurationVariables = [
   "DOCKER_VISITOR_TOKEN_SECRET",
   "DOCKER_BOARD_ACCESS_SECRET",
   "DOCKER_RATE_LIMIT_KEY_SECRET",
+  "BADACTION_DOMAIN",
+  "CADDY_ACME_EMAIL",
   "DOCKER_RUNNER_IMAGE",
   "DOCKER_MIGRATOR_IMAGE",
   "TEST_DATABASE_IS_DISPOSABLE",

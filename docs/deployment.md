@@ -6,6 +6,12 @@ This repository provides a Docker Compose baseline for one Linux host. It builds
 separate migration and application images, starts PostgreSQL 16, runs forward
 Prisma migrations, and binds the database and application ports to loopback.
 
+If you want the repository to generate credentials, install Docker, and manage
+the HTTPS proxy for a fresh host, use the guided [Quick Start](quick-start.md).
+It adds `docker-compose.quick-start.yml` and Caddy to the same production
+baseline. The manual procedure below remains available for an existing proxy,
+external secrets, custom networking, or other operator-controlled deployment.
+
 It is not a complete managed production platform. Before serving real teams,
 the operator must provide DNS, HTTPS termination, a correctly configured reverse
 proxy, backups and restore drills, monitoring, secret management, and host and

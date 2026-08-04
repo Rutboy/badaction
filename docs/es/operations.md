@@ -8,6 +8,12 @@ y los registros de infraestructura. Los archivos de Compose ofrecen una base par
 solo host; no proporcionan PostgreSQL gestionado, alta disponibilidad,
 almacenamiento remoto de copias de seguridad, certificados ni alertas.
 
+Una instalación creada con el [Inicio rápido](quick-start.md) puede usar
+`sudo badaction doctor`, `status`, `logs`, `backup`, `start`, `stop` y
+`restart`. Ese ayudante incluye la capa Compose opcional de Caddy. Los comandos
+explícitos siguientes siguen siendo útiles para comprender y personalizar cada
+operación.
+
 Los comandos siguientes usan `.env.production` y ambos archivos de Compose.
 Ejecútalos desde la copia de trabajo revisada del repositorio. Nunca pegues valores de
 entorno expandidos, cookies de visitante, fragmentos de invitación, URL de

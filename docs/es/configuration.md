@@ -136,6 +136,8 @@ operador para un uso compartido o público.
 | `DOCKER_VISITOR_TOKEN_SECRET`  | Valor local predecible     | Obligatorio en la configuración superpuesta de producción | Se pasa como `VISITOR_TOKEN_SECRET`.                                                                                                                        |
 | `DOCKER_BOARD_ACCESS_SECRET`   | Valor local predecible     | Obligatorio en la configuración superpuesta de producción | Se pasa como `BOARD_ACCESS_SECRET`.                                                                                                                         |
 | `DOCKER_RATE_LIMIT_KEY_SECRET` | Valor local predecible     | Obligatorio en la configuración superpuesta de producción | Se pasa como `RATE_LIMIT_KEY_SECRET`.                                                                                                                       |
+| `BADACTION_DOMAIN`             | Ninguno                    | Obligatorio para la capa Caddy guiada                     | Nombre DNS público usado como dirección del sitio Caddy. Usa solo el host, sin esquema, puerto, ruta ni punto final.                                        |
+| `CADDY_ACME_EMAIL`             | Ninguno                    | Obligatorio para la capa Caddy guiada                     | Correo de contacto dado a Caddy para gestionar certificados TLS automáticamente. No es una cuenta de la aplicación.                                         |
 | `DOCKER_RUNNER_IMAGE`          | `badaction-runner:local`   | Opcional                                                  | Selecciona una imagen preconstruida de la aplicación. Emparéjala con la imagen de migración correspondiente.                                                |
 | `DOCKER_MIGRATOR_IMAGE`        | `badaction-migrator:local` | Opcional                                                  | Selecciona una imagen de migración preconstruida. Emparéjala con la imagen de aplicación correspondiente.                                                   |
 
@@ -143,6 +145,14 @@ Compose transmite las variables del entorno de ejecución `TRUSTED_PROXY_HOPS`,
 `BOARD_RETENTION_DAYS`, `BOARD_CARD_LIMIT`, `RETENTION_CLEANUP_ENABLED`,
 `RETENTION_CLEANUP_INTERVAL_MINUTES` y `RETENTION_CLEANUP_BATCH_SIZE` con los
 mismos nombres y los valores predeterminados de la tabla del entorno de ejecución.
+
+`docker-compose.quick-start.yml` es opcional y solo lo usa el instalador
+guiado. Requiere `BADACTION_DOMAIN` y `CADDY_ACME_EMAIL`, publica Caddy en los
+puertos TCP 80 y 443 y conserva los datos de certificados en volúmenes con
+nombre. El instalador también escribe `BADACTION_INSTALLER_MANAGED=1` como marca
+de propiedad para su ayudante; la aplicación y los servicios Compose no la
+consumen. Para la ruta directa Caddy-aplicación, mantén `DOCKER_APP_ORIGIN` igual
+a `https://<BADACTION_DOMAIN>` y `TRUSTED_PROXY_HOPS=1`.
 
 Los ajustes `POSTGRES_*` y `deploy/init-production-db.sh` solo inicializan un
 directorio de datos PostgreSQL vacío. Cambiarlos cuando el volumen con nombre ya

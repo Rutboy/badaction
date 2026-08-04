@@ -1,0 +1,13 @@
+{
+	admin off
+	email {$CADDY_ACME_EMAIL}
+}
+
+{$BADACTION_DOMAIN} {
+	reverse_proxy app:3000 {
+		flush_interval -1
+		transport http {
+			compression off
+		}
+	}
+}

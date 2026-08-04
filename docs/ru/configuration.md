@@ -128,6 +128,8 @@ production и `deploy/production.env.example` требуют значения о
 | `DOCKER_VISITOR_TOKEN_SECRET`  | Предсказуемое локальное значение | Обязательна в production override    | Передаётся как `VISITOR_TOKEN_SECRET`.                                                                                                               |
 | `DOCKER_BOARD_ACCESS_SECRET`   | Предсказуемое локальное значение | Обязательна в production override    | Передаётся как `BOARD_ACCESS_SECRET`.                                                                                                                |
 | `DOCKER_RATE_LIMIT_KEY_SECRET` | Предсказуемое локальное значение | Обязательна в production override    | Передаётся как `RATE_LIMIT_KEY_SECRET`.                                                                                                              |
+| `BADACTION_DOMAIN`             | Нет                              | Обязательна для слоя Caddy мастера   | Публичное DNS-имя сайта Caddy. Указывайте только имя без схемы, порта, пути и завершающей точки.                                                     |
+| `CADDY_ACME_EMAIL`             | Нет                              | Обязательна для слоя Caddy мастера   | Контактный email для автоматического управления TLS-сертификатами Caddy. Это не учётная запись приложения.                                           |
 | `DOCKER_RUNNER_IMAGE`          | `badaction-runner:local`         | Необязательна                        | Выбирает готовый образ приложения. Используйте его с соответствующим образом мигратора.                                                              |
 | `DOCKER_MIGRATOR_IMAGE`        | `badaction-migrator:local`       | Необязательна                        | Выбирает готовый образ мигратора. Используйте его с соответствующим образом приложения.                                                              |
 
@@ -136,6 +138,14 @@ Runtime-переменные `TRUSTED_PROXY_HOPS`, `BOARD_RETENTION_DAYS`,
 `RETENTION_CLEANUP_INTERVAL_MINUTES` и `RETENTION_CLEANUP_BATCH_SIZE`
 передаются Compose под теми же именами и используют значения по умолчанию из
 таблицы среды выполнения.
+
+Необязательный `docker-compose.quick-start.yml` используется только мастером
+установки. Он требует `BADACTION_DOMAIN` и `CADDY_ACME_EMAIL`, публикует Caddy на
+TCP-портах 80 и 443 и сохраняет данные сертификатов Caddy в именованных томах.
+Установщик также пишет `BADACTION_INSTALLER_MANAGED=1` как маркер владения для
+своей команды управления; приложение и сервисы Compose его не используют. Для
+прямого пути Caddy к приложению сохраняйте `DOCKER_APP_ORIGIN` равным
+`https://<BADACTION_DOMAIN>`, а `TRUSTED_PROXY_HOPS` — равным `1`.
 
 Настройки `POSTGRES_*` и `deploy/init-production-db.sh` инициализируют только
 пустой каталог данных PostgreSQL. Их изменение после создания именованного тома
