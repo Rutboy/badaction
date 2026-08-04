@@ -126,6 +126,8 @@ use.
 | `DOCKER_VISITOR_TOKEN_SECRET`  | Predictable local value    | Required by the production override  | Passed as `VISITOR_TOKEN_SECRET`.                                                                                                                             |
 | `DOCKER_BOARD_ACCESS_SECRET`   | Predictable local value    | Required by the production override  | Passed as `BOARD_ACCESS_SECRET`.                                                                                                                              |
 | `DOCKER_RATE_LIMIT_KEY_SECRET` | Predictable local value    | Required by the production override  | Passed as `RATE_LIMIT_KEY_SECRET`.                                                                                                                            |
+| `BADACTION_DOMAIN`             | None                       | Required by the guided Caddy overlay | Public DNS hostname used as Caddy's site address. Use only the hostname, without a scheme, port, path, or trailing dot.                                       |
+| `CADDY_ACME_EMAIL`             | None                       | Required by the guided Caddy overlay | Contact email supplied to Caddy for automatic TLS certificate management. It is not an application user account.                                              |
 | `DOCKER_RUNNER_IMAGE`          | `badaction-runner:local`   | Optional                             | Selects a prebuilt application image. Pair it with the matching migrator image.                                                                               |
 | `DOCKER_MIGRATOR_IMAGE`        | `badaction-migrator:local` | Optional                             | Selects a prebuilt migration image. Pair it with the matching application image.                                                                              |
 
@@ -134,6 +136,15 @@ The runtime variables `TRUSTED_PROXY_HOPS`, `BOARD_RETENTION_DAYS`,
 `RETENTION_CLEANUP_INTERVAL_MINUTES`, and `RETENTION_CLEANUP_BATCH_SIZE` are
 passed through by Compose under the same names and use the defaults in the
 runtime table.
+
+`docker-compose.quick-start.yml` is optional and is used only by the guided
+installer. It requires `BADACTION_DOMAIN` and `CADDY_ACME_EMAIL`, publishes
+Caddy on TCP ports 80 and 443, and persists Caddy's certificate data in named
+volumes. The installer also writes `BADACTION_INSTALLER_MANAGED=1` as an
+ownership marker for its management helper; the application and Compose
+services do not consume that marker. Keep `DOCKER_APP_ORIGIN` equal to
+`https://<BADACTION_DOMAIN>` and `TRUSTED_PROXY_HOPS=1` for the bundled direct
+Caddy-to-application path.
 
 The `POSTGRES_*` settings and `deploy/init-production-db.sh` initialize only an
 empty PostgreSQL data directory. Changing them after the named volume exists

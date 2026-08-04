@@ -7,6 +7,12 @@ host Linux. Construye imágenes separadas para migración y aplicación, inicia
 PostgreSQL 16, ejecuta migraciones progresivas de Prisma y vincula los puertos
 de la base de datos y de la aplicación a la interfaz de bucle local.
 
+Si quieres generar credenciales, instalar Docker y gestionar el proxy HTTPS en
+un host nuevo, usa el [Inicio rápido](quick-start.md). Añade Caddy mediante
+`docker-compose.quick-start.yml` a la misma base de producción. El procedimiento
+manual siguiente sigue disponible para un proxy existente, secretos externos,
+red personalizada u otro despliegue controlado por el operador.
+
 No es una plataforma de producción gestionada completa. Antes de prestar
 servicio a equipos reales, el operador debe proporcionar DNS, terminación HTTPS,
 un proxy inverso configurado correctamente, copias de seguridad y simulacros de

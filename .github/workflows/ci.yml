@@ -101,6 +101,9 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Test guided installer
+        run: npm run test:installer
+
       - name: Test without database skips
         run: npm run test:database
 

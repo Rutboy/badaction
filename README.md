@@ -32,7 +32,16 @@ available in English, Russian, and Spanish.
 - Export a board as JSON, CSV, or Markdown.
 - Expire boards automatically after a configurable retention period.
 
-## Quick start
+## Guided server Quick Start
+
+New to self-hosting? The guided installer generates credentials, installs
+Docker when needed, starts PostgreSQL and Badaction, and configures a domain
+with automatic HTTPS through Caddy. Start with the step-by-step
+[server Quick Start](docs/quick-start.md).
+
+The short Compose example below is for a local computer only.
+
+## Local quick start
 
 You need Docker with BuildKit and the Compose v2 command (`docker compose`).
 
@@ -75,8 +84,10 @@ For local development outside containers, see
 
 The repository includes non-root migrator and application images plus a
 production Compose override that requires operator-supplied credentials. It is
-a single-host deployment baseline: you must still provide HTTPS, a reverse
-proxy, backups, monitoring, and enough PostgreSQL connections.
+a single-host deployment baseline. The guided Quick Start adds a Caddy reverse
+proxy with automatic HTTPS; manual deployments can provide their own proxy.
+Every operator must still provide backups, monitoring, host security, and enough
+PostgreSQL connections.
 
 Read [Deployment](docs/deployment.md) before exposing an instance. In
 particular, SSE proxy buffering must be disabled, and the database connection

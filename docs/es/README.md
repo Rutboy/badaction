@@ -10,6 +10,8 @@ documentación.
 
 ## Usar y autohospedar Badaction
 
+- [Inicio rápido](quick-start.md) — el instalador guiado genera credenciales,
+  instala Docker, inicia producción y configura HTTPS automático.
 - [Primeros pasos](getting-started.md) — ejecuta el conjunto local de
   contenedores o un entorno de desarrollo desde el código fuente.
 - [Despliegue](deployment.md) — configura la base de Compose para producción, el

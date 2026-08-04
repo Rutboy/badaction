@@ -7,6 +7,11 @@ monitoring, update sequencing, and infrastructure logs. The Compose files offer
 a single-host baseline; they do not supply managed PostgreSQL, high
 availability, remote backup storage, certificates, or alerting.
 
+An installation created by the guided [Quick Start](quick-start.md) can use
+`sudo badaction doctor`, `status`, `logs`, `backup`, `start`, `stop`, and
+`restart`. That helper includes the optional Caddy Compose layer. The explicit
+commands below remain useful for understanding and customizing each operation.
+
 Commands below use `.env.production` and both Compose files. Run them from the
 reviewed repository checkout. Never paste expanded environment values, visitor
 cookies, invitation fragments, owner-claim URLs, or user content into an issue

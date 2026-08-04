@@ -9,6 +9,8 @@ application behavior and open a documentation issue.
 
 ## Use and self-host Badaction
 
+- [Quick Start](quick-start.md) — let the guided installer generate credentials,
+  install Docker, start the production stack, and configure automatic HTTPS.
 - [Getting started](getting-started.md) — run the local container stack or a
   source-development environment.
 - [Deployment](deployment.md) — configure the production Compose baseline,

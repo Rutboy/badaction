@@ -37,7 +37,17 @@ proyecto está disponible en inglés, ruso y español.
 - Hacer que los tableros caduquen automáticamente tras un período de retención
   configurable.
 
-## Inicio rápido
+## Instalación rápida en un servidor
+
+Si eres nuevo en el autohospedaje, el instalador guiado genera credenciales,
+instala Docker cuando hace falta, inicia PostgreSQL y Badaction y configura el
+dominio con HTTPS automático mediante Caddy. Empieza con el
+[Inicio rápido para servidores](docs/es/quick-start.md).
+
+El ejemplo corto de Compose que aparece a continuación es solo para un equipo
+local.
+
+## Inicio rápido local
 
 Necesitas Docker con BuildKit y el comando de Compose v2 (`docker compose`).
 
@@ -84,8 +94,10 @@ Para desarrollar localmente fuera de los contenedores, consulta
 El repositorio incluye imágenes de migración y aplicación que se ejecutan sin
 privilegios de superusuario, además de una configuración superpuesta de Compose para
 producción que exige credenciales proporcionadas por el operador. Es una base
-de despliegue para un solo host: aún debes proporcionar HTTPS, un proxy inverso,
-copias de seguridad, supervisión y suficientes conexiones de PostgreSQL.
+para un solo host. El Inicio rápido añade Caddy con HTTPS automático; un
+despliegue manual puede usar su propio proxy. En todos los casos hacen falta
+copias de seguridad, supervisión, seguridad del host y suficientes conexiones
+PostgreSQL.
 
 Lee [Despliegue](docs/es/deployment.md) antes de exponer una instancia. En
 particular, se debe desactivar el almacenamiento en búfer del proxy para SSE y
