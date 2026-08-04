@@ -31,7 +31,8 @@ type ActionItemRow = {
 
 export type CreateActionItemPayload =
   | { source: "manual"; text: string; assignee?: string | null }
-  | { source: "card"; sourceCardId: string; assignee?: string | null };
+  | { source: "card"; sourceCardId: string; assignee?: string | null }
+  | { source: "group"; sourceGroupId: string; assignee?: string | null };
 
 const actionItemNotFound = () => new ApiError(
   404,
@@ -40,6 +41,7 @@ const actionItemNotFound = () => new ApiError(
 );
 
 const cardNotFound = () => new ApiError(404, "CARD_NOT_FOUND", "Card not found.");
+const groupNotFound = () => new ApiError(404, "GROUP_NOT_FOUND", "Group not found.");
 
 const requireActionPlacementResources = (
   items: readonly ActionItemRow[],
@@ -166,6 +168,19 @@ export const createActionItem = async (
     }
     text = normalizeText(sourceCard.text);
     sourceCardId = sourceCard.id;
+  } else if (payload.source === "group") {
+    const sourceGroup = await tx.cardGroup.findFirst({
+      where: { id: payload.sourceGroupId, boardId },
+      select: {
+        title: true,
+        primaryCard: { select: { id: true, text: true } },
+      },
+    });
+    if (!sourceGroup) {
+      throw groupNotFound();
+    }
+    text = normalizeText(sourceGroup.title ?? sourceGroup.primaryCard.text);
+    sourceCardId = sourceGroup.primaryCard.id;
   } else {
     text = normalizeText(payload.text);
     sourceCardId = null;

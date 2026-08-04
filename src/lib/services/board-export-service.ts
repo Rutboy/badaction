@@ -9,6 +9,7 @@ import type {
   ExportGroup,
 } from "../export/target-export.ts";
 import { prisma } from "../prisma/client.ts";
+import { loadUniqueGroupVoteCounts } from "./group-vote-counts.ts";
 
 const compareIds = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
@@ -135,6 +136,11 @@ export const getTargetBoardExport = async (
       (card) => card.groupId as string,
     );
     const groupsByColumn = groupByKey(groups, (group) => group.columnId);
+    const groupVoteCounts = await loadUniqueGroupVoteCounts(
+      tx,
+      boardId,
+      groups.map((group) => group.id),
+    );
 
     return {
       schemaVersion: 2,
@@ -172,13 +178,17 @@ export const getTargetBoardExport = async (
             createdAt: card.createdAt.toISOString(),
             updatedAt: card.updatedAt.toISOString(),
           })).sort((left, right) => left.position - right.position || compareIds(left.id, right.id));
+          const primaryCard = originals.find((card) => card.id === group.primaryCardId);
+          if (!primaryCard) {
+            throw new Error("Persisted group does not contain its primary card");
+          }
           return {
             kind: "GROUP",
             id: group.id,
             position: group.position,
-            title: group.title,
+            title: group.title ?? primaryCard.text,
             primaryCardId: group.primaryCardId,
-            voteCount: originals.reduce((sum, card) => sum + card.voteCount, 0),
+            voteCount: groupVoteCounts.get(group.id) ?? 0,
             cards: originals,
             createdAt: group.createdAt.toISOString(),
             updatedAt: group.updatedAt.toISOString(),

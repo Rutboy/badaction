@@ -133,18 +133,18 @@ One board-scoped visitor identity can vote once per card and no more than the ta
 | `POST /api/boards/{boardId}/groups/{groupId}/move`    | Owner  | `{targetColumnId, placement, expectedRevision}`                | Revision and group.                                                                |
 | `POST /api/boards/{boardId}/groups/{groupId}/ungroup` | Owner  | `{expectedRevision}`                                           | Revision and the restored top-level cards.                                         |
 
-A new group contains 2–100 unique cards from one column. `primaryCardId` must be one of `cardIds`. A group title is `null` or 1–120 trimmed characters.
+A new group contains 2–100 unique cards from one column. `primaryCardId` must be one of `cardIds`. A group title is `null` or 1–120 trimmed characters. When it is `null`, clients display the primary card's text as the effective group name, and exports materialize that fallback in the exported group title. A group's `voteCount` is the number of distinct board-scoped visitor identities that voted for any card in the group; multiple votes from one identity contribute one to the group total.
 
 ### Action items
 
-| Method and path                                               | Access | Request                                                                              | Result                               |
-| ------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------ | ------------------------------------ |
-| `POST /api/boards/{boardId}/action-items`                     | Owner  | `{source: "manual", text, assignee?}` or `{source: "card", sourceCardId, assignee?}` | `201` with revision and action item. |
-| `PATCH /api/boards/{boardId}/action-items/{actionItemId}`     | Owner  | One or more of `{text?, assignee?, completed?}`                                      | Revision and action item.            |
-| `POST /api/boards/{boardId}/action-items/{actionItemId}/move` | Owner  | `{placement, expectedRevision}`                                                      | Revision and action item.            |
-| `DELETE /api/boards/{boardId}/action-items/{actionItemId}`    | Owner  | `{expectedRevision}`                                                                 | Revision.                            |
+| Method and path                                               | Access | Request                                                                                                                              | Result                               |
+| ------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| `POST /api/boards/{boardId}/action-items`                     | Owner  | `{source: "manual", text, assignee?}`, `{source: "card", sourceCardId, assignee?}`, or `{source: "group", sourceGroupId, assignee?}` | `201` with revision and action item. |
+| `PATCH /api/boards/{boardId}/action-items/{actionItemId}`     | Owner  | One or more of `{text?, assignee?, completed?}`                                                                                      | Revision and action item.            |
+| `POST /api/boards/{boardId}/action-items/{actionItemId}/move` | Owner  | `{placement, expectedRevision}`                                                                                                      | Revision and action item.            |
+| `DELETE /api/boards/{boardId}/action-items/{actionItemId}`    | Owner  | `{expectedRevision}`                                                                                                                 | Revision.                            |
 
-Manual text contains 1–1000 trimmed characters. An action item created from a card copies that card's current text and stores a source reference. `assignee` is `null` or 1–120 trimmed characters. A board supports at most 200 action items.
+Manual text contains 1–1000 trimmed characters. An action item created from a card copies that card's current text and stores a source reference. An action item created from a group copies the explicit group title, or the primary card text when the title is `null`; its source-card reference points to that primary card. `assignee` is `null` or 1–120 trimmed characters. A board supports at most 200 action items.
 
 Action-item placement uses `{beforeActionItemId, afterActionItemId}`, with a `null` neighbor at either edge.
 

@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { readApiError } from "@/i18n/api-errors";
 import { useI18n } from "@/i18n/provider";
+import { getGroupDisplayTitle } from "@/lib/group-display";
 import type {
   ActionItemView,
   CardView,
@@ -478,6 +479,7 @@ export type GroupMenuProps = {
   boardId: string;
   group: GroupView;
   revision: string;
+  canManageActionItems: boolean;
   disabled?: boolean;
   onChanged: OnChanged;
 };
@@ -486,22 +488,28 @@ export const GroupMenu = ({
   boardId,
   group,
   revision,
+  canManageActionItems,
   disabled = false,
   onChanged,
 }: GroupMenuProps) => {
   const { locale, t } = useI18n();
   const titleId = useId();
   const primaryId = useId();
+  const assigneeId = useId();
   const [editOpen, setEditOpen] = useState(false);
   const [ungroupOpen, setUngroupOpen] = useState(false);
+  const [actionOpen, setActionOpen] = useState(false);
   const [title, setTitle] = useState(group.title ?? "");
   const [primaryCardId, setPrimaryCardId] = useState(group.primaryCardId);
-  const [pending, setPending] = useState<"edit" | "ungroup" | null>(null);
+  const [assignee, setAssignee] = useState("");
+  const [pending, setPending] = useState<"edit" | "ungroup" | "action" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => setError(null), [locale]);
 
-  if (!group.canUngroup) return null;
+  if (!group.canUngroup && !canManageActionItems) return null;
+
+  const displayTitle = getGroupDisplayTitle(group) ?? t("content.group.defaultTitle");
 
   const updateGroup = async () => {
     if (pending) return;
@@ -567,6 +575,38 @@ export const GroupMenu = ({
     }
   };
 
+  const createActionItem = async () => {
+    if (pending) return;
+    setPending("action");
+    setError(null);
+    try {
+      const response = await fetch(`/api/boards/${boardId}/action-items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "group",
+          sourceGroupId: group.id,
+          assignee: nullableText(assignee),
+        }),
+      });
+      if (!response.ok) {
+        throw new LocalizedRequestError(
+          await readApiError(response, t, "content.action.createFailed"),
+        );
+      }
+
+      await onChanged();
+      setActionOpen(false);
+      setAssignee("");
+      toast.success(t("content.action.created"));
+    } catch (caughtError) {
+      const message = getErrorMessage(caughtError, t("content.action.createFailed"));
+      setError(message);
+    } finally {
+      setPending(null);
+    }
+  };
+
   const controlsDisabled = disabled || pending !== null;
 
   return (
@@ -574,29 +614,48 @@ export const GroupMenu = ({
       <DropdownMenu>
         <MenuTrigger label={t("content.group.actions")} disabled={controlsDisabled} />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            disabled={controlsDisabled}
-            onSelect={() => {
-              setTitle(group.title ?? "");
-              setPrimaryCardId(group.primaryCardId);
-              setError(null);
-              setEditOpen(true);
-            }}
-          >
-            <Pencil className="size-4" aria-hidden="true" />
-            {t("content.group.configure")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            disabled={controlsDisabled}
-            onSelect={() => {
-              setError(null);
-              setUngroupOpen(true);
-            }}
-          >
-            <Layers3 className="size-4" aria-hidden="true" />
-            {t("content.group.ungroup")}
-          </DropdownMenuItem>
+          {group.canUngroup ? (
+            <DropdownMenuItem
+              disabled={controlsDisabled}
+              onSelect={() => {
+                setTitle(group.title ?? "");
+                setPrimaryCardId(group.primaryCardId);
+                setError(null);
+                setEditOpen(true);
+              }}
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+              {t("content.group.configure")}
+            </DropdownMenuItem>
+          ) : null}
+          {canManageActionItems ? (
+            <DropdownMenuItem
+              disabled={controlsDisabled}
+              onSelect={() => {
+                setAssignee("");
+                setError(null);
+                setActionOpen(true);
+              }}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              {t("content.group.createAction")}
+            </DropdownMenuItem>
+          ) : null}
+          {group.canUngroup ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={controlsDisabled}
+                onSelect={() => {
+                  setError(null);
+                  setUngroupOpen(true);
+                }}
+              >
+                <Layers3 className="size-4" aria-hidden="true" />
+                {t("content.group.ungroup")}
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -669,6 +728,67 @@ export const GroupMenu = ({
                   {pending === "edit"
                     ? t("content.common.saving")
                     : t("content.common.save")}
+                </PendingLabel>
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={actionOpen}
+        onOpenChange={(nextOpen) => {
+          if (pending !== "action") setActionOpen(nextOpen);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("content.group.createActionTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("content.group.createActionDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            noValidate
+            className="space-y-4"
+            aria-busy={pending === "action"}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void createActionItem();
+            }}
+          >
+            <div className="whitespace-pre-wrap break-words rounded-md border bg-muted p-3 text-sm leading-5">
+              {displayTitle}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor={assigneeId} className="text-sm font-medium">
+                {t("content.common.assignee")}
+              </label>
+              <Input
+                id={assigneeId}
+                value={assignee}
+                onChange={(event) => setAssignee(event.target.value)}
+                maxLength={120}
+                placeholder={t("content.common.optional")}
+                autoFocus
+                disabled={pending === "action"}
+              />
+            </div>
+            <MutationError message={error} />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setActionOpen(false)}
+                disabled={pending === "action"}
+              >
+                {t("content.common.cancel")}
+              </Button>
+              <Button type="submit" disabled={pending === "action"}>
+                <PendingLabel pending={pending === "action"}>
+                  {pending === "action"
+                    ? t("content.common.adding")
+                    : t("content.common.create")}
                 </PendingLabel>
               </Button>
             </DialogFooter>

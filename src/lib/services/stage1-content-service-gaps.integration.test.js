@@ -40,6 +40,7 @@ import {
 import {
   createCardGroup,
   moveCardGroup,
+  updateCardGroup,
 } from "./groups-service.ts";
 
 const databaseTest = process.env.RUN_DATABASE_TESTS === "1" ? test : test.skip;
@@ -728,7 +729,7 @@ databaseTest("target export returns a coherent private-field-free v2 shape and e
     assert.ok(exportedGroup);
     assert.equal(exportedGroup.id, groupResult.group.id);
     assert.equal(exportedGroup.primaryCardId, cards[1].id);
-    assert.equal(exportedGroup.voteCount, 2);
+    assert.equal(exportedGroup.voteCount, 1);
     assert.deepEqual(
       new Set(exportedGroup.cards.map((card) => card.id)),
       new Set([cards[0].id, cards[1].id]),
@@ -1137,6 +1138,88 @@ databaseTest("read-only takes precedence over owner-only errors for participant 
     assert.equal(await prisma.cardGroup.count({ where: { boardId: context.id } }), 1);
     assert.equal(await prisma.actionItem.count({ where: { boardId: context.id } }), 2);
     assert.equal(await prisma.boardColumn.count({ where: { boardId: context.id } }), 2);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+databaseTest("groups count unique voters, display the primary text, and create actions", async () => {
+  const fixture = { boardIds: [], visitorPayloads: [] };
+  try {
+    const context = await setupBoard(fixture, "Поведение групп");
+    const sourceColumn = context.columns[0];
+    const cards = [
+      await createCard(context, sourceColumn.id, "Первичный сигнал"),
+      await createCard(context, sourceColumn.id, "Основной сигнал"),
+    ];
+
+    for (const card of cards) {
+      const vote = await voteForCard(
+        context.id,
+        card.id,
+        context.ownerPayload,
+        context.ownerIdentity,
+      );
+      await advanceRevision(context, vote);
+    }
+
+    const groupResult = await createCardGroup(
+      context.id,
+      context.ownerPayload,
+      context.ownerIdentity,
+      {
+        columnId: sourceColumn.id,
+        cardIds: cards.map((card) => card.id),
+        primaryCardId: cards[1].id,
+        title: null,
+        expectedRevision: context.revision.toString(),
+      },
+    );
+    await advanceRevision(context, groupResult);
+    assert.equal(groupResult.group.voteCount, 1);
+    assert.equal(groupResult.group.title, null);
+
+    const page = await getTopLevelPage(context, sourceColumn.id);
+    const pageGroup = page.items.find((item) => item.kind === "GROUP");
+    assert.ok(pageGroup);
+    assert.equal(pageGroup.voteCount, 1);
+    assert.equal(
+      pageGroup.cards.find((card) => card.id === pageGroup.primaryCardId)?.text,
+      cards[1].text,
+    );
+
+    const fallbackAction = await createActionItem(context.id, context.ownerPayload, {
+      source: "group",
+      sourceGroupId: groupResult.group.id,
+    });
+    await advanceRevision(context, fallbackAction);
+    assert.equal(fallbackAction.actionItem.text, cards[1].text);
+    assert.equal(fallbackAction.actionItem.sourceCardId, cards[1].id);
+
+    const titledGroup = await updateCardGroup(
+      context.id,
+      groupResult.group.id,
+      context.ownerPayload,
+      context.ownerIdentity,
+      { title: "Общий вывод" },
+    );
+    await advanceRevision(context, titledGroup);
+    assert.equal(titledGroup.group.voteCount, 1);
+
+    const titledAction = await createActionItem(context.id, context.ownerPayload, {
+      source: "group",
+      sourceGroupId: groupResult.group.id,
+    });
+    await advanceRevision(context, titledAction);
+    assert.equal(titledAction.actionItem.text, "Общий вывод");
+
+    const exported = await getTargetBoardExport(context.id, context.ownerPayload);
+    const exportedGroup = exported.columns
+      .flatMap((column) => column.items)
+      .find((item) => item.kind === "GROUP");
+    assert.ok(exportedGroup);
+    assert.equal(exportedGroup.voteCount, 1);
+    assert.equal(exportedGroup.title, "Общий вывод");
   } finally {
     await cleanupFixture(fixture);
   }

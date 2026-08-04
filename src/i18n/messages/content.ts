@@ -160,6 +160,10 @@ export const contentEn = {
       actions: "Group actions",
       combine: "Combine cards",
       configure: "Configure group",
+      createAction: "Create action item",
+      createActionTitle: "Create action item",
+      createActionDescription:
+        "The group name will be copied. Assign someone if needed.",
       ungroup: "Ungroup",
       originals: plural({
         one: "{formattedCount} original",
@@ -365,6 +369,10 @@ export const contentRu = {
       actions: "Действия с группой",
       combine: "Объединить карточки",
       configure: "Настроить группу",
+      createAction: "Создать решение",
+      createActionTitle: "Создать решение",
+      createActionDescription:
+        "Название группы будет скопировано в решение. При необходимости назначьте ответственного.",
       ungroup: "Распустить группу",
       originals: plural({
         one: "{formattedCount} оригинал",
@@ -564,6 +572,10 @@ export const contentEs = {
       actions: "Acciones del grupo",
       combine: "Combinar tarjetas",
       configure: "Configurar grupo",
+      createAction: "Crear acción",
+      createActionTitle: "Crear acción",
+      createActionDescription:
+        "Se copiará el nombre del grupo. Asigna a alguien si es necesario.",
       ungroup: "Separar grupo",
       originals: plural({
         one: "{formattedCount} original",
