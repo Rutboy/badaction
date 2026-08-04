@@ -33,5 +33,6 @@ pnpm-debug.log*
 .DS_Store
 
 # Internal development records retained outside the public repository.
+/AGENTS.md
 /docs.local/
 /backups/
