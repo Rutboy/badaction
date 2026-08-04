@@ -63,6 +63,15 @@ export const itemPlacementSchema = z
     }
   });
 
+const voteSortedColumnIdsSchema = z
+  .array(targetUuidV4Schema)
+  .max(2)
+  .refine((columnIds) => new Set(columnIds).size === columnIds.length, {
+    message: "Vote-sorted column IDs must be unique.",
+  })
+  .optional()
+  .default([]);
+
 export const columnPlacementSchema = z
   .object({
     beforeColumnId: targetUuidV4Schema.nullable(),
@@ -232,6 +241,7 @@ export const moveTargetCardSchema = z
   .object({
     targetColumnId: targetUuidV4Schema,
     placement: itemPlacementSchema,
+    voteSortedColumnIds: voteSortedColumnIdsSchema,
     expectedRevision: revisionSchema,
   })
   .strict();
@@ -306,6 +316,7 @@ export const moveTargetGroupSchema = z
   .object({
     targetColumnId: targetUuidV4Schema,
     placement: itemPlacementSchema,
+    voteSortedColumnIds: voteSortedColumnIdsSchema,
     expectedRevision: revisionSchema,
   })
   .strict();

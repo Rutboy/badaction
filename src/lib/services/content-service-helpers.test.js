@@ -20,6 +20,7 @@ import {
 import {
   allocateHeadPosition,
   allocateTopLevelPosition,
+  materializeTopLevelItemMove,
   rebalanceTopLevelItems,
 } from "./top-level-order.ts";
 
@@ -205,6 +206,82 @@ test("top-level rebalance updates only changed card and group positions", async 
   assert.deepEqual(updates, [
     { kind: "GROUP", id: "group-b", position: 2048 },
   ]);
+});
+
+test("materialized move preserves vote order around the dragged card", async () => {
+  const sourceColumnId = "source-column";
+  const targetColumnId = "target-column";
+  const cards = [
+    { ...card("card-a", 1024), columnId: sourceColumnId, voteCount: 1 },
+    { ...card("card-b", 2048), columnId: sourceColumnId, voteCount: 5 },
+    { ...card("card-c", 1024), columnId: targetColumnId, voteCount: 3 },
+    { ...card("card-d", 2048), columnId: targetColumnId, voteCount: 0 },
+  ];
+  const updates = [];
+  const tx = {
+    card: {
+      findMany: async ({ where, select }) => {
+        const selected = cards.filter(
+          (item) =>
+            item.columnId === where.columnId &&
+            (!where.id?.in || where.id.in.includes(item.id)),
+        );
+        return select._count
+          ? selected.map((item) => ({
+              id: item.id,
+              _count: { votes: item.voteCount },
+            }))
+          : selected.map((item) => ({ id: item.id, position: item.position }));
+      },
+      update: async ({ where, data }) => {
+        const item = cards.find((candidate) => candidate.id === where.id);
+        item.position = data.position;
+        updates.push({ id: where.id, position: data.position });
+      },
+    },
+    cardGroup: {
+      findMany: async () => [],
+      update: async () => undefined,
+    },
+  };
+
+  const position = await materializeTopLevelItemMove({
+    tx,
+    board: boardAtRevision(7n),
+    boardId: "board-id",
+    sourceColumnId,
+    targetColumnId,
+    movedItem: { kind: "CARD", id: "card-a" },
+    placement: {
+      before: { kind: "CARD", id: "card-c" },
+      after: { kind: "CARD", id: "card-d" },
+    },
+    voteSortedColumnIds: [sourceColumnId],
+  });
+
+  assert.equal(position, 2048);
+  assert.deepEqual(updates, [
+    { id: "card-b", position: 1024 },
+    { id: "card-a", position: 2048 },
+    { id: "card-d", position: 3072 },
+  ]);
+});
+
+test("materialized move rejects unrelated vote-sorted columns", async () => {
+  await assert.rejects(
+    () =>
+      materializeTopLevelItemMove({
+        tx: {},
+        board: boardAtRevision(7n),
+        boardId: "board-id",
+        sourceColumnId: "source-column",
+        targetColumnId: "target-column",
+        movedItem: { kind: "CARD", id: "card-a" },
+        placement: { before: null, after: null },
+        voteSortedColumnIds: ["unrelated-column"],
+      }),
+    /source or target/,
+  );
 });
 
 test("top-level allocation rebalances an exhausted gap and preserves placement", async () => {

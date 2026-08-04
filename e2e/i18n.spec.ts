@@ -129,6 +129,36 @@ const boardLocaleCases: readonly BoardLocaleCase[] = [
   },
 ];
 
+const boardSortLabels = {
+  en: {
+    columnActions: (title: string) => `Actions for column “${title}”`,
+    label: "Card order",
+    original: "Original order",
+    originalTooltip: "Show cards in their saved order",
+    byVoteCount: "By vote count",
+    byVoteCountTooltip:
+      "Sort cards by vote count. Moving a card makes this the saved order.",
+  },
+  ru: {
+    columnActions: (title: string) => `Действия с колонкой «${title}»`,
+    label: "Порядок карточек",
+    original: "Обычный порядок",
+    originalTooltip: "Показать карточки в сохранённом порядке",
+    byVoteCount: "По числу голосов",
+    byVoteCountTooltip:
+      "Сортировать карточки по числу голосов. При перемещении карточки этот порядок станет обычным.",
+  },
+  es: {
+    columnActions: (title: string) => `Acciones de la columna «${title}»`,
+    label: "Orden de las tarjetas",
+    original: "Orden original",
+    originalTooltip: "Mostrar las tarjetas en el orden guardado",
+    byVoteCount: "Por número de votos",
+    byVoteCountTooltip:
+      "Ordenar las tarjetas por número de votos. Al mover una tarjeta, este pasa a ser el orden guardado.",
+  },
+} as const;
+
 const getBaseURL = (): string => {
   const baseURL = test.info().project.use.baseURL;
   if (typeof baseURL !== "string") {
@@ -177,6 +207,34 @@ const expectNoHorizontalOverflow = async (locator: Locator) => {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(
     dimensions.clientWidth + 1,
   );
+};
+
+const expectLocalizedColumnSortMenu = async (
+  page: Page,
+  locale: "en" | "ru" | "es",
+  columnTitle: string,
+) => {
+  const labels = boardSortLabels[locale];
+  const trigger = page.getByRole("button", {
+    name: labels.columnActions(columnTitle),
+    exact: true,
+  });
+  await trigger.click();
+  await expect(page.getByText(labels.label, { exact: true })).toBeVisible();
+  const original = page.getByRole("menuitemradio", {
+    name: labels.original,
+    exact: true,
+  });
+  await expect(original).toHaveAttribute("aria-checked", "true");
+  await expect(original).toHaveAttribute("title", labels.originalTooltip);
+  await expect(
+    page.getByRole("menuitemradio", {
+      name: labels.byVoteCount,
+      exact: true,
+    }),
+  ).toHaveAttribute("title", labels.byVoteCountTooltip);
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
 };
 
 const waitForBoard = async (page: Page, title: string, syncOnline: string) => {
@@ -517,6 +575,11 @@ test.describe("locale smoke", () => {
         boardId = await submitBoardCreation(page, localeCase.createButton);
         await page.waitForURL(new RegExp(`/boards/${boardId}$`));
         await waitForBoard(page, boardTitle, localeCase.syncOnline);
+        await expectLocalizedColumnSortMenu(
+          page,
+          localeCase.locale,
+          localeCase.defaultColumns[0],
+        );
         if (mobile) {
           await expectNoPageOverflow(page);
         }
@@ -616,6 +679,11 @@ test.describe("locale smoke", () => {
         );
         await page.keyboard.press("Escape");
         await expect(panel).toBeHidden();
+        await expectLocalizedColumnSortMenu(
+          page,
+          localeCase.targetLocale,
+          localeCase.defaultColumns[0],
+        );
         for (const title of localeCase.defaultColumns) {
           await expect(
             page.getByRole("region", { name: title, exact: true }),

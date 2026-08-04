@@ -155,6 +155,65 @@ test("translator interpolates values without assembling message fragments", () =
   );
 });
 
+test("home board discovery and card sorting labels are localized completely", () => {
+  const expected = {
+    en: {
+      boards: "Your boards",
+      owner: "Owner",
+      openBoard: "Open board “Team retro”",
+      sortLabel: "Card order",
+      original: "Original order",
+      originalTooltip: "Show cards in their saved order",
+      byVoteCount: "By vote count",
+      byVoteCountTooltip:
+        "Sort cards by vote count. Moving a card makes this the saved order.",
+      backHome: "Back to home",
+    },
+    ru: {
+      boards: "Ваши доски",
+      owner: "Владелец",
+      openBoard: "Открыть доску «Team retro»",
+      sortLabel: "Порядок карточек",
+      original: "Обычный порядок",
+      originalTooltip: "Показать карточки в сохранённом порядке",
+      byVoteCount: "По числу голосов",
+      byVoteCountTooltip:
+        "Сортировать карточки по числу голосов. При перемещении карточки этот порядок станет обычным.",
+      backHome: "Вернуться на главную",
+    },
+    es: {
+      boards: "Tus tableros",
+      owner: "Propietario",
+      openBoard: "Abrir el tablero «Team retro»",
+      sortLabel: "Orden de las tarjetas",
+      original: "Orden original",
+      originalTooltip: "Mostrar las tarjetas en el orden guardado",
+      byVoteCount: "Por número de votos",
+      byVoteCountTooltip:
+        "Ordenar las tarjetas por número de votos. Al mover una tarjeta, este pasa a ser el orden guardado.",
+      backHome: "Volver al inicio",
+    },
+  };
+
+  for (const locale of SUPPORTED_LOCALES) {
+    const t = createTranslator(locale);
+    assert.deepEqual(
+      {
+        boards: t("home.accessibleBoards"),
+        owner: t("home.ownerRole"),
+        openBoard: t("home.openBoard", { title: "Team retro" }),
+        sortLabel: t("boardShell.sort.label"),
+        original: t("boardShell.sort.original"),
+        originalTooltip: t("boardShell.sort.originalTooltip"),
+        byVoteCount: t("boardShell.sort.byVoteCount"),
+        byVoteCountTooltip: t("boardShell.sort.byVoteCountTooltip"),
+        backHome: t("common.backHome"),
+      },
+      expected[locale],
+    );
+  }
+});
+
 test("pluralization follows English, Russian, and Spanish rules", () => {
   const en = createTranslator("en");
   const ru = createTranslator("ru");

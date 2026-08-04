@@ -14,6 +14,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ConnectionIndicator } from "@/components/board/connection-indicator";
 import type { BoardManagementSection } from "@/components/board/board-management-types";
@@ -24,6 +25,7 @@ import type {
   BoardRefreshResult,
 } from "@/components/use-board-realtime";
 import { Button } from "@/components/ui/button";
+import { ProductLogo } from "@/components/product-logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -126,6 +128,14 @@ export const BoardToolbar = ({
       className="relative z-20 min-h-16 shrink-0 border-b bg-background pt-[calc(0.5rem+env(safe-area-inset-top))] pr-[calc(1rem+env(safe-area-inset-right))] pb-2 pl-[calc(1rem+env(safe-area-inset-left))] sm:pr-[calc(1.5rem+env(safe-area-inset-right))] sm:pl-[calc(1.5rem+env(safe-area-inset-left))]"
     >
       <div className="mx-auto flex min-h-12 max-w-[1680px] items-center gap-3">
+        <Link
+          href="/"
+          className="shrink-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={t("common.backHome")}
+          title={t("common.backHome")}
+        >
+          <ProductLogo className="size-9" />
+        </Link>
         <div className="min-w-0 flex-1">
           {editingTitle ? (
             <form

@@ -1,4 +1,4 @@
-import type { ItemPlacement } from "./content-types.ts";
+import type { ItemPlacement, ItemRef } from "./content-types.ts";
 import {
   POSITION_STEP,
   comparePositionedItems,
@@ -9,6 +9,7 @@ import {
   type LockedBoard,
   type PositionedItem,
 } from "./content-service-helpers.ts";
+import { loadUniqueGroupVoteCounts } from "./group-vote-counts.ts";
 
 export type TopLevelItemRow = PositionedItem;
 
@@ -31,6 +32,43 @@ export const listTopLevelItems = async (
     ...cards.map((card) => ({ ...card, kind: "CARD" as const })),
     ...groups.map((group) => ({ ...group, kind: "GROUP" as const })),
   ].sort(comparePositionedItems);
+};
+
+export const listTopLevelItemsByVotes = async (
+  tx: ContentTransaction,
+  boardId: string,
+  columnId: string,
+): Promise<TopLevelItemRow[]> => {
+  const items = await listTopLevelItems(tx, boardId, columnId);
+  const cardIds = items
+    .filter((item) => item.kind === "CARD")
+    .map((item) => item.id);
+  const groupIds = items
+    .filter((item) => item.kind === "GROUP")
+    .map((item) => item.id);
+  const [cards, groupVoteCounts] = await Promise.all([
+    cardIds.length === 0
+      ? Promise.resolve([])
+      : tx.card.findMany({
+          where: { boardId, columnId, id: { in: cardIds }, groupId: null },
+          select: { id: true, _count: { select: { votes: true } } },
+        }),
+    loadUniqueGroupVoteCounts(tx, boardId, groupIds),
+  ]);
+  const cardVoteCounts = new Map(
+    cards.map((card) => [card.id, card._count.votes]),
+  );
+  const voteCount = (item: TopLevelItemRow): number =>
+    item.kind === "CARD"
+      ? (cardVoteCounts.get(item.id) ?? 0)
+      : (groupVoteCounts.get(item.id) ?? 0);
+
+  return [...items].sort((left, right) => {
+    const voteDifference = voteCount(right) - voteCount(left);
+    return voteDifference !== 0
+      ? voteDifference
+      : comparePositionedItems(left, right);
+  });
 };
 
 export const setTopLevelPosition = async (
@@ -59,6 +97,86 @@ export const rebalanceTopLevelItems = async (
     result.push({ ...item, position });
   }
   return result;
+};
+
+const sameItem = (left: ItemRef, right: ItemRef): boolean =>
+  left.kind === right.kind && left.id === right.id;
+
+const insertAt = <T>(values: readonly T[], value: T, index: number): T[] => [
+  ...values.slice(0, index),
+  value,
+  ...values.slice(index),
+];
+
+export const materializeTopLevelItemMove = async ({
+  tx,
+  board,
+  boardId,
+  sourceColumnId,
+  targetColumnId,
+  movedItem,
+  placement,
+  voteSortedColumnIds,
+}: {
+  tx: ContentTransaction;
+  board: LockedBoard;
+  boardId: string;
+  sourceColumnId: string;
+  targetColumnId: string;
+  movedItem: ItemRef;
+  placement: ItemPlacement;
+  voteSortedColumnIds: readonly string[];
+}): Promise<number> => {
+  const affectedColumnIds = new Set([sourceColumnId, targetColumnId]);
+  if (voteSortedColumnIds.some((columnId) => !affectedColumnIds.has(columnId))) {
+    throw new RangeError(
+      "Vote-sorted columns must be the source or target of the move",
+    );
+  }
+  const voteSortedColumns = new Set(voteSortedColumnIds);
+  const loadItems = (columnId: string) =>
+    voteSortedColumns.has(columnId)
+      ? listTopLevelItemsByVotes(tx, boardId, columnId)
+      : listTopLevelItems(tx, boardId, columnId);
+  const sourceItems = await loadItems(sourceColumnId);
+  const targetItems =
+    sourceColumnId === targetColumnId
+      ? sourceItems
+      : await loadItems(targetColumnId);
+  const item = sourceItems.find((candidate) => sameItem(candidate, movedItem));
+  if (!item) {
+    throw new Error("The moved item is missing from its source column");
+  }
+  const targetWithoutMovedItem = targetItems.filter(
+    (candidate) => !sameItem(candidate, movedItem),
+  );
+  const targetIndex = resolveItemPlacementIndex(
+    targetWithoutMovedItem,
+    placement.before,
+    placement.after,
+  );
+  if (targetIndex === null) {
+    throw stalePlacement(board.revision);
+  }
+  const finalTargetItems = insertAt(targetWithoutMovedItem, item, targetIndex);
+
+  if (sourceColumnId !== targetColumnId) {
+    await rebalanceTopLevelItems(
+      tx,
+      sourceItems.filter((candidate) => !sameItem(candidate, movedItem)),
+    );
+  }
+  const rebalancedTargetItems = await rebalanceTopLevelItems(
+    tx,
+    finalTargetItems,
+  );
+  const moved = rebalancedTargetItems.find((candidate) =>
+    sameItem(candidate, movedItem),
+  );
+  if (!moved) {
+    throw new Error("The moved item is missing from the final target order");
+  }
+  return moved.position;
 };
 
 export const allocateTopLevelPosition = async (

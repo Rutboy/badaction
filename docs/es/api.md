@@ -148,13 +148,13 @@ Los tableros admiten como máximo 10 columnas. Los títulos de columna contienen
 
 ### Tarjetas y paginación
 
-| Método y ruta                                    | Acceso                       | Solicitud                                       | Resultado                                                          |
-| ------------------------------------------------ | ---------------------------- | ----------------------------------------------- | ------------------------------------------------------------------ |
-| `GET /api/boards/{boardId}/cards`                | Miembro                      | Consulta `{columnId, cursor?, limit?}`          | Una página de elementos de una columna.                            |
-| `POST /api/boards/{boardId}/cards`               | Miembro                      | `{columnId, text, author?}`                     | `201` con revisión y tarjeta.                                      |
-| `PATCH /api/boards/{boardId}/cards/{cardId}`     | Propietario o creador actual | `{text?, author?}`                              | Revisión y tarjeta.                                                |
-| `POST /api/boards/{boardId}/cards/{cardId}/move` | Propietario o creador actual | `{targetColumnId, placement, expectedRevision}` | Revisión y tarjeta. Primero hay que desagrupar tarjetas agrupadas. |
-| `DELETE /api/boards/{boardId}/cards/{cardId}`    | Propietario o creador actual | `{expectedRevision}`                            | Revisión.                                                          |
+| Método y ruta                                    | Acceso                       | Solicitud                                                             | Resultado                                                          |
+| ------------------------------------------------ | ---------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `GET /api/boards/{boardId}/cards`                | Miembro                      | Consulta `{columnId, cursor?, limit?}`                                | Una página de elementos de una columna.                            |
+| `POST /api/boards/{boardId}/cards`               | Miembro                      | `{columnId, text, author?}`                                           | `201` con revisión y tarjeta.                                      |
+| `PATCH /api/boards/{boardId}/cards/{cardId}`     | Propietario o creador actual | `{text?, author?}`                                                    | Revisión y tarjeta.                                                |
+| `POST /api/boards/{boardId}/cards/{cardId}/move` | Propietario o creador actual | `{targetColumnId, placement, voteSortedColumnIds?, expectedRevision}` | Revisión y tarjeta. Primero hay que desagrupar tarjetas agrupadas. |
+| `DELETE /api/boards/{boardId}/cards/{cardId}`    | Propietario o creador actual | `{expectedRevision}`                                                  | Revisión.                                                          |
 
 La consulta de página requiere `columnId`. El valor predeterminado de `limit` es
 50 y admite 1–100. La respuesta contiene
@@ -172,6 +172,11 @@ adyacentes de nivel superior en la columna de destino. Si un trabajo concurrente
 hace que la colocación quede obsoleta, el servidor devuelve un conflicto de
 revisión.
 
+`voteSortedColumnIds` puede contener como máximo los ID de las columnas de
+origen y destino. El campo pide al servidor que materialice atómicamente su
+orden actual por número de votos junto con el movimiento, para que salir de esa
+vista conserve el orden visible.
+
 ### Votos
 
 | Método y ruta                                      | Acceso      | Solicitud                                         | Resultado                                                                                                          |
@@ -188,12 +193,12 @@ autoritativos.
 
 ### Grupos
 
-| Método y ruta                                         | Acceso      | Solicitud                                                      | Resultado                                                                         |
-| ----------------------------------------------------- | ----------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `POST /api/boards/{boardId}/groups`                   | Propietario | `{columnId, cardIds, primaryCardId, title?, expectedRevision}` | `201` con revisión y grupo.                                                       |
-| `PATCH /api/boards/{boardId}/groups/{groupId}`        | Propietario | `{title?, primaryCardId?, expectedRevision?}`                  | Revisión y grupo. Se requiere `expectedRevision` al cambiar la tarjeta principal. |
-| `POST /api/boards/{boardId}/groups/{groupId}/move`    | Propietario | `{targetColumnId, placement, expectedRevision}`                | Revisión y grupo.                                                                 |
-| `POST /api/boards/{boardId}/groups/{groupId}/ungroup` | Propietario | `{expectedRevision}`                                           | Revisión y las tarjetas restauradas como elementos de nivel superior.             |
+| Método y ruta                                         | Acceso      | Solicitud                                                             | Resultado                                                                         |
+| ----------------------------------------------------- | ----------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `POST /api/boards/{boardId}/groups`                   | Propietario | `{columnId, cardIds, primaryCardId, title?, expectedRevision}`        | `201` con revisión y grupo.                                                       |
+| `PATCH /api/boards/{boardId}/groups/{groupId}`        | Propietario | `{title?, primaryCardId?, expectedRevision?}`                         | Revisión y grupo. Se requiere `expectedRevision` al cambiar la tarjeta principal. |
+| `POST /api/boards/{boardId}/groups/{groupId}/move`    | Propietario | `{targetColumnId, placement, voteSortedColumnIds?, expectedRevision}` | Revisión y grupo.                                                                 |
+| `POST /api/boards/{boardId}/groups/{groupId}/ungroup` | Propietario | `{expectedRevision}`                                                  | Revisión y las tarjetas restauradas como elementos de nivel superior.             |
 
 Un grupo nuevo contiene 2–100 tarjetas únicas de una misma columna.
 `primaryCardId` debe estar incluido en `cardIds`. El título de un grupo es

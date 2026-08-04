@@ -27,6 +27,7 @@ import {
 import {
   allocateTopLevelPosition,
   listTopLevelItems,
+  materializeTopLevelItemMove,
   setTopLevelPosition,
   type TopLevelItemRow,
 } from "./top-level-order.ts";
@@ -314,6 +315,7 @@ export const moveCardGroup = async (
   payload: {
     targetColumnId: string;
     placement: ItemPlacement;
+    voteSortedColumnIds?: readonly string[];
     expectedRevision: string;
   },
 ) => withContentTransaction(async (tx) => {
@@ -341,7 +343,21 @@ export const moveCardGroup = async (
   requireItemPlacementResources(allTargetItems, payload.placement);
   const targetItems = allTargetItems
     .filter((item) => item.kind !== "GROUP" || item.id !== group.id);
-  if (targetColumn.id === group.columnId) {
+  const voteSortedColumnIds = payload.voteSortedColumnIds ?? [];
+  let position: number;
+  if (voteSortedColumnIds.length > 0) {
+    await tx.$executeRaw(Prisma.sql`SET CONSTRAINTS ALL DEFERRED`);
+    position = await materializeTopLevelItemMove({
+      tx,
+      board: context.board,
+      boardId,
+      sourceColumnId: group.columnId,
+      targetColumnId: targetColumn.id,
+      movedItem: { kind: "GROUP", id: group.id },
+      placement: payload.placement,
+      voteSortedColumnIds,
+    });
+  } else if (targetColumn.id === group.columnId) {
     const currentIndex = allTargetItems.findIndex((item) =>
       item.kind === "GROUP" && item.id === group.id);
     const requestedIndex = resolveItemPlacementIndex(
@@ -358,13 +374,20 @@ export const moveCardGroup = async (
         group: await serializeGroupView(tx, group, context, visitorIdentity),
       };
     }
+    position = await allocateTopLevelPosition(
+      tx,
+      context.board,
+      targetItems,
+      payload.placement,
+    );
+  } else {
+    position = await allocateTopLevelPosition(
+      tx,
+      context.board,
+      targetItems,
+      payload.placement,
+    );
   }
-  const position = await allocateTopLevelPosition(
-    tx,
-    context.board,
-    targetItems,
-    payload.placement,
-  );
   const cards = await tx.card.findMany({
     where: { boardId, groupId: group.id },
     select: { id: true },

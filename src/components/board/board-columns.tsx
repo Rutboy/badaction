@@ -4,9 +4,11 @@ import { CollisionPriority } from "@dnd-kit/abstract";
 import { useDroppable } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import {
+  ArrowDownWideNarrow,
   Ellipsis,
   GripVertical,
   Layers3,
+  ListOrdered,
   Loader2,
   Settings2,
   ThumbsUp,
@@ -27,6 +29,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +46,7 @@ import type {
   CardView,
   GroupView,
 } from "@/lib/pagination/board-state";
+import type { BoardItemSort } from "@/lib/board-sort";
 import { cn } from "@/lib/utils";
 
 type SnapshotColumn = BoardSnapshot["columns"][number];
@@ -120,6 +127,8 @@ export type BoardColumnsProps = {
   loadingMore: Readonly<Record<string, boolean>>;
   loadMoreErrors: Readonly<Record<string, string | null>>;
   disabled: boolean;
+  columnSorts: Readonly<Record<string, BoardItemSort>>;
+  onColumnSortChange: (columnId: string, sort: BoardItemSort) => void;
   onManageColumn: (columnId: string) => void;
 };
 
@@ -135,6 +144,8 @@ export const BoardColumns = ({
   loadingMore,
   loadMoreErrors,
   disabled,
+  columnSorts,
+  onColumnSortChange,
   onManageColumn,
 }: BoardColumnsProps) => {
   const { t } = useI18n();
@@ -168,6 +179,8 @@ export const BoardColumns = ({
             loadingMore={loadingMore[column.id] ?? false}
             loadMoreError={loadMoreErrors[column.id] ?? null}
             disabled={disabled}
+            sort={columnSorts[column.id] ?? "ORIGINAL"}
+            onSortChange={(sort) => onColumnSortChange(column.id, sort)}
             onManageColumn={onManageColumn}
           />
         ))}
@@ -197,6 +210,8 @@ const SortableColumn = ({
   loadingMore,
   loadMoreError,
   disabled,
+  sort,
+  onSortChange,
   onManageColumn,
 }: {
   boardId: string;
@@ -217,6 +232,8 @@ const SortableColumn = ({
   loadingMore: boolean;
   loadMoreError: string | null;
   disabled: boolean;
+  sort: BoardItemSort;
+  onSortChange: (sort: BoardItemSort) => void;
   onManageColumn: (columnId: string) => void;
 }) => {
   const { formatNumber, t } = useI18n();
@@ -311,49 +328,79 @@ const SortableColumn = ({
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
-              {board.capabilities.canManageGroups ||
-              board.capabilities.canManageColumns ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      ref={columnMenuTriggerRef}
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-9 text-muted-foreground max-sm:size-11"
-                      aria-label={t("content.column.actions", {
-                        column: column.title,
-                      })}
-                      disabled={disabled}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    ref={columnMenuTriggerRef}
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-9 text-muted-foreground max-sm:size-11"
+                    aria-label={t("content.column.actions", {
+                      column: column.title,
+                    })}
+                    disabled={disabled}
+                  >
+                    <Ellipsis className="size-4" aria-hidden="true" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel>
+                    {t("boardShell.sort.label")}
+                  </DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={sort}
+                    onValueChange={(value) => {
+                      if (value === "ORIGINAL" || value === "VOTES") {
+                        onSortChange(value);
+                      }
+                    }}
+                  >
+                    <DropdownMenuRadioItem
+                      value="ORIGINAL"
+                      title={t("boardShell.sort.originalTooltip")}
                     >
-                      <Ellipsis className="size-4" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {board.capabilities.canManageGroups ? (
-                      <DropdownMenuItem
-                        disabled={
-                          disabled ||
-                          column.nextCursor !== null ||
-                          topLevelCards.length < 2
-                        }
-                        onSelect={() => setGroupDialogOpen(true)}
-                      >
-                        <Layers3 className="size-4" aria-hidden="true" />
-                        {t("content.group.combine")}
-                      </DropdownMenuItem>
-                    ) : null}
-                    {board.capabilities.canManageColumns ? (
-                      <DropdownMenuItem
-                        onSelect={() => onManageColumn(column.id)}
-                      >
-                        <Settings2 className="size-4" aria-hidden="true" />
-                        {t("content.column.configure")}
-                      </DropdownMenuItem>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+                      <ListOrdered className="size-4" aria-hidden="true" />
+                      {t("boardShell.sort.original")}
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem
+                      value="VOTES"
+                      title={t("boardShell.sort.byVoteCountTooltip")}
+                    >
+                      <ArrowDownWideNarrow
+                        className="size-4"
+                        aria-hidden="true"
+                      />
+                      {t("boardShell.sort.byVoteCount")}
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                  {board.capabilities.canManageGroups ||
+                  board.capabilities.canManageColumns ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  {board.capabilities.canManageGroups ? (
+                    <DropdownMenuItem
+                      disabled={
+                        disabled ||
+                        column.nextCursor !== null ||
+                        topLevelCards.length < 2
+                      }
+                      onSelect={() => setGroupDialogOpen(true)}
+                    >
+                      <Layers3 className="size-4" aria-hidden="true" />
+                      {t("content.group.combine")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {board.capabilities.canManageColumns ? (
+                    <DropdownMenuItem
+                      onSelect={() => onManageColumn(column.id)}
+                    >
+                      <Settings2 className="size-4" aria-hidden="true" />
+                      {t("content.column.configure")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
               {board.capabilities.canManageColumns ? (
                 <DragHandle
                   ref={handleRef}

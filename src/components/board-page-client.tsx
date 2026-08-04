@@ -49,6 +49,10 @@ import { readApiError } from "@/i18n/api-errors";
 import type { MessageKey } from "@/i18n/messages";
 import { useI18n } from "@/i18n/provider";
 import type { Translate } from "@/i18n/translate";
+import {
+  type BoardItemSort,
+  sortBoardItemsByVotes,
+} from "@/lib/board-sort";
 
 type SnapshotColumn = BoardSnapshot["columns"][number];
 
@@ -246,6 +250,10 @@ export const BoardPageClient = ({
   const [managementColumnId, setManagementColumnId] = useState<string | null>(
     null,
   );
+  const [columnSorts, setColumnSorts] = useState<Record<string, BoardItemSort>>(
+    {},
+  );
+  const [columnSortingSuspended, setColumnSortingSuspended] = useState(false);
   const loadSequence = useRef(0);
   const accessLost = useRef(false);
   const refreshInFlight = useRef<Promise<BoardRefreshResult> | null>(null);
@@ -253,9 +261,43 @@ export const BoardPageClient = ({
   const loadMoreInFlight = useRef(new Set<string>());
   const dragActive = useRef(false);
   const dragSnapshot = useRef<BoardSnapshot | null>(null);
+  const dragDisplaySnapshot = useRef<BoardSnapshot | null>(null);
+  const dragColumnSortsSnapshot = useRef<Record<string, BoardItemSort>>({});
   const dragPreview = useRef<BoardSnapshot | null>(null);
   const dragPreviewTargetId = useRef<string | null>(null);
   const pendingDragRefresh = useRef<BoardSnapshot | null>(null);
+  const displayedBoard = useMemo(() => {
+    if (!board) {
+      return board;
+    }
+    if (columnSortingSuspended) {
+      return board;
+    }
+
+    return {
+      ...board,
+      columns: board.columns.map((column) => ({
+        ...column,
+        items:
+          columnSorts[column.id] === "VOTES"
+            ? sortBoardItemsByVotes(column.items)
+            : column.items,
+      })),
+    };
+  }, [board, columnSortingSuspended, columnSorts]);
+  const onColumnSortChange = useCallback(
+    (columnId: string, sort: BoardItemSort) => {
+      setColumnSorts((current) => {
+        if (sort === "ORIGINAL") {
+          const remaining = { ...current };
+          delete remaining[columnId];
+          return remaining;
+        }
+        return { ...current, [columnId]: sort };
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     // Transient messages are already localized strings. Do not leave a stale
@@ -505,12 +547,14 @@ export const BoardPageClient = ({
     path,
     body,
     successKey,
+    rollbackColumnSorts,
   }: {
     previous: BoardSnapshot;
     optimistic: BoardSnapshot;
     path: string;
     body: unknown;
     successKey: MessageKey;
+    rollbackColumnSorts?: Readonly<Record<string, BoardItemSort>>;
   }) => {
     const key = "dnd:move";
     let moveWasSaved = false;
@@ -557,6 +601,9 @@ export const BoardPageClient = ({
         void load({ force: true });
       } else {
         setBoard(previous);
+        if (rollbackColumnSorts) {
+          setColumnSorts({ ...rollbackColumnSorts });
+        }
         setActionError({
           key,
           message: tRef.current("boardShell.dnd.canceledWithError", { message }),
@@ -568,7 +615,7 @@ export const BoardPageClient = ({
     }
   };
 
-  if (error || !board) {
+  if (error || !board || !displayedBoard) {
     return (
       <main className="mx-auto flex min-h-[100dvh] max-w-xl items-center px-4 py-10">
         <section className="w-full space-y-4 border-l-2 border-destructive pl-5">
@@ -611,9 +658,16 @@ export const BoardPageClient = ({
         }
         dragActive.current = true;
         dragSnapshot.current = board;
-        dragPreview.current = board;
+        dragDisplaySnapshot.current =
+          parsed.namespace === "ITEM" ? displayedBoard : board;
+        dragColumnSortsSnapshot.current = { ...columnSorts };
+        dragPreview.current = dragDisplaySnapshot.current;
         dragPreviewTargetId.current = null;
         pendingDragRefresh.current = null;
+        if (parsed.namespace === "ITEM") {
+          setBoard(displayedBoard);
+          setColumnSortingSuspended(true);
+        }
         setActionError(null);
         const label = readDragLabel(source.data, source.id);
         setActiveDrag({ id: String(source.id), label, namespace: parsed.namespace });
@@ -645,13 +699,18 @@ export const BoardPageClient = ({
         const source = operation.source;
         const target = operation.target;
         const previous = dragSnapshot.current ?? board;
+        const dragStartBoard = dragDisplaySnapshot.current ?? previous;
+        const columnSortsAtDragStart = dragColumnSortsSnapshot.current;
         const preview = dragPreview.current ?? board;
         const pendingRefresh = pendingDragRefresh.current;
         dragActive.current = false;
         dragSnapshot.current = null;
+        dragDisplaySnapshot.current = null;
+        dragColumnSortsSnapshot.current = {};
         dragPreview.current = null;
         dragPreviewTargetId.current = null;
         pendingDragRefresh.current = null;
+        setColumnSortingSuspended(false);
         const sourceLabel = source
           ? readDragLabel(source.data, source.id)
           : t("boardShell.dnd.item");
@@ -726,7 +785,10 @@ export const BoardPageClient = ({
           }
 
           if (parsedSource.namespace === "ITEM") {
-            const sourceColumn = findItemColumn(previous, parsedSource.item);
+            const sourceColumn = findItemColumn(
+              dragStartBoard,
+              parsedSource.item,
+            );
             if (!sourceColumn) {
               throw new LocalizedDndError(t("boardShell.dnd.itemMissing"));
             }
@@ -759,6 +821,20 @@ export const BoardPageClient = ({
             }
             const placement = buildItemPlacement(finalItems, parsedSource.item);
             const resource = parsedSource.item.kind === "CARD" ? "cards" : "groups";
+            const voteSortedColumnIds = Array.from(
+              new Set([sourceColumn.id, targetColumnId]),
+            ).filter(
+              (columnId) => columnSortsAtDragStart[columnId] === "VOTES",
+            );
+            if (voteSortedColumnIds.length > 0) {
+              setColumnSorts((current) => {
+                const next = { ...current };
+                for (const columnId of voteSortedColumnIds) {
+                  delete next[columnId];
+                }
+                return next;
+              });
+            }
             void commitDndMove({
               previous,
               optimistic: preview,
@@ -766,11 +842,13 @@ export const BoardPageClient = ({
               body: {
                 targetColumnId,
                 placement,
+                voteSortedColumnIds,
                 expectedRevision: previous.revision,
               },
               successKey: parsedSource.item.kind === "CARD"
                 ? "boardShell.dnd.cardMoved"
                 : "boardShell.dnd.groupMoved",
+              rollbackColumnSorts: columnSortsAtDragStart,
             });
             return;
           }
@@ -839,7 +917,6 @@ export const BoardPageClient = ({
           syncError={syncError}
           dndError={actionError?.key === "dnd:move" ? actionError.message : null}
         />
-
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {dndStatus}
         </div>
@@ -849,7 +926,7 @@ export const BoardPageClient = ({
 
         <BoardColumns
           boardId={boardId}
-          board={board}
+          board={displayedBoard}
           onCreateCard={onCreateCard}
           onToggleVote={onToggleVote}
           onLoadMore={onLoadMore}
@@ -859,6 +936,8 @@ export const BoardPageClient = ({
           loadingMore={loadingMore}
           loadMoreErrors={loadMoreErrors}
           disabled={interactionsDisabled}
+          columnSorts={columnSorts}
+          onColumnSortChange={onColumnSortChange}
           onManageColumn={(columnId) => {
             setManagementColumnId(columnId);
             setManagementSection("columns");

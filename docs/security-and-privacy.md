@@ -61,6 +61,8 @@ The cookie payload is HMAC-derived into a server-side anonymous-session credenti
 
 Possession of a valid cookie is necessary but not sufficient for board access. A protected operation also requires an active anonymous session and an active membership for the requested, unexpired board. Revoked sessions remain as tombstones until their credential lifetime has passed so an old valid cookie cannot recreate an active session by upsert.
 
+The home page lists board titles only for active memberships belonging to the current anonymous session and only while those boards remain unexpired. Revoked memberships, expired boards, and boards associated with another browser credential are excluded.
+
 There are no accounts, passwords, or email-based recovery. Clearing the cookie, using a different browser profile, rotating credential secrets without a migration plan, or otherwise losing the credential can permanently remove the user's ability to reach existing memberships.
 
 ## Board access and roles

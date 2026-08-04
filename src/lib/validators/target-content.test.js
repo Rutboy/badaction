@@ -149,6 +149,41 @@ test("card schemas normalize nullable author and reject client positions", () =>
   assert.deepEqual(patchTargetCardSchema.parse({ author: null }), { author: null });
   assert.equal(patchTargetCardSchema.safeParse({}).success, false);
   assert.equal(patchTargetCardSchema.safeParse({ text: null }).success, false);
+  assert.deepEqual(
+    moveTargetCardSchema.parse({
+      targetColumnId: ID_B,
+      placement: { before: null, after: null },
+      expectedRevision: "4",
+    }).voteSortedColumnIds,
+    [],
+  );
+  assert.equal(
+    moveTargetCardSchema.safeParse({
+      targetColumnId: ID_B,
+      placement: { before: null, after: null },
+      voteSortedColumnIds: [ID_A, ID_B],
+      expectedRevision: "4",
+    }).success,
+    true,
+  );
+  assert.equal(
+    moveTargetCardSchema.safeParse({
+      targetColumnId: ID_B,
+      placement: { before: null, after: null },
+      voteSortedColumnIds: [ID_A, ID_A],
+      expectedRevision: "4",
+    }).success,
+    false,
+  );
+  assert.equal(
+    moveTargetCardSchema.safeParse({
+      targetColumnId: ID_B,
+      placement: { before: null, after: null },
+      voteSortedColumnIds: [ID_A, ID_B, ID_C],
+      expectedRevision: "4",
+    }).success,
+    false,
+  );
   assert.equal(
     moveTargetCardSchema.safeParse({
       targetColumnId: ID_B,

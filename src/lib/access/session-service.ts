@@ -25,6 +25,14 @@ type SessionServiceOptions = {
   now?: Date;
 };
 
+export type AccessibleBoardSummary = {
+  id: string;
+  title: string;
+  role: "OWNER" | "PARTICIPANT";
+  createdAt: string;
+  expiresAt: string;
+};
+
 const inactiveSession = () => new ApiError(
   401,
   "ANONYMOUS_SESSION_INACTIVE",
@@ -152,6 +160,51 @@ export const requireActiveAnonymousSession = async (
   }
 
   return assertAndRefreshSession(client, session, now);
+};
+
+export const listAccessibleBoards = async (
+  visitorPayload: string,
+  {
+    client = prisma,
+    env = process.env,
+    now = new Date(),
+  }: SessionServiceOptions = {},
+): Promise<AccessibleBoardSummary[]> => {
+  const session = await requireActiveAnonymousSession(visitorPayload, {
+    client,
+    env,
+    now,
+  });
+  const memberships = await client.boardMembership.findMany({
+    where: {
+      sessionId: session.id,
+      revokedAt: null,
+      board: { expiresAt: { gt: now } },
+    },
+    orderBy: [
+      { board: { createdAt: "desc" } },
+      { boardId: "asc" },
+    ],
+    select: {
+      role: true,
+      board: {
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          expiresAt: true,
+        },
+      },
+    },
+  });
+
+  return memberships.map(({ board, role }) => ({
+    id: board.id,
+    title: board.title,
+    role,
+    createdAt: board.createdAt.toISOString(),
+    expiresAt: board.expiresAt.toISOString(),
+  }));
 };
 
 export const preserveAnonymousSessionForCredentialRefresh = async (

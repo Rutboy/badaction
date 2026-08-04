@@ -22,6 +22,7 @@ import {
   allocateHeadPosition,
   allocateTopLevelPosition,
   listTopLevelItems,
+  materializeTopLevelItemMove,
 } from "./top-level-order.ts";
 import { moveVotesBetweenColumns } from "./vote-move-service.ts";
 
@@ -225,6 +226,7 @@ export const moveTargetCard = async (
   payload: {
     targetColumnId: string;
     placement: ItemPlacement;
+    voteSortedColumnIds?: readonly string[];
     expectedRevision: string;
   },
 ) => withContentTransaction(async (tx) => {
@@ -256,7 +258,21 @@ export const moveTargetCard = async (
   requireItemPlacementResources(allTargetItems, payload.placement);
   const targetItems = allTargetItems
     .filter((item) => item.kind !== "CARD" || item.id !== card.id);
-  if (card.columnId === targetColumn.id) {
+  const voteSortedColumnIds = payload.voteSortedColumnIds ?? [];
+  let position: number;
+  if (voteSortedColumnIds.length > 0) {
+    await tx.$executeRaw(Prisma.sql`SET CONSTRAINTS ALL DEFERRED`);
+    position = await materializeTopLevelItemMove({
+      tx,
+      board: context.board,
+      boardId,
+      sourceColumnId: card.columnId,
+      targetColumnId: targetColumn.id,
+      movedItem: { kind: "CARD", id: card.id },
+      placement: payload.placement,
+      voteSortedColumnIds,
+    });
+  } else if (card.columnId === targetColumn.id) {
     const currentIndex = allTargetItems.findIndex((item) =>
       item.kind === "CARD" && item.id === card.id);
     const requestedIndex = resolveItemPlacementIndex(
@@ -274,13 +290,20 @@ export const moveTargetCard = async (
         card: serializeCardView({ card, context, viewerHasVoted: viewerVote !== null }),
       };
     }
+    position = await allocateTopLevelPosition(
+      tx,
+      context.board,
+      targetItems,
+      payload.placement,
+    );
+  } else {
+    position = await allocateTopLevelPosition(
+      tx,
+      context.board,
+      targetItems,
+      payload.placement,
+    );
   }
-  const position = await allocateTopLevelPosition(
-    tx,
-    context.board,
-    targetItems,
-    payload.placement,
-  );
   await moveVotesBetweenColumns({
     tx,
     boardId,

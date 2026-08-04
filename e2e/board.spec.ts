@@ -398,6 +398,227 @@ const feedbackColumnOrder = (page: Page): Promise<Array<string | null>> =>
       items.map((item) => item.getAttribute("aria-label")),
     );
 
+test("dragging from vote order materializes that order independently per column", async ({
+  page,
+}) => {
+  const context = page.context();
+  const baseURL = test.info().project.use.baseURL as string;
+  const origin = new URL(baseURL).origin;
+  const boardTitle = "Проверка сортировки по голосам";
+  const votedCardText = "Обсудить первым";
+  const newestCardText = "Новая карточка без голосов";
+  const thirdCardText = "Ещё одна карточка без голосов";
+  const secondVotedCardText = "Важное улучшение";
+  const secondNewestCardText = "Новое улучшение без голосов";
+  let boardId: string | null = null;
+  let flowError: unknown = null;
+
+  const visibleCardOrder = (columnTitle: string) =>
+    column(page, columnTitle)
+      .locator('ol > li[aria-label^="Карточка «"]')
+      .evaluateAll((items) =>
+        items.map((item) => item.getAttribute("aria-label")),
+      );
+
+  const openColumnSortMenu = async (columnTitle: string) => {
+    await column(page, columnTitle)
+      .getByRole("button", {
+        name: `Действия с колонкой «${columnTitle}»`,
+      })
+      .click();
+    await expect(
+      page.getByText("Порядок карточек", { exact: true }),
+    ).toBeVisible();
+  };
+
+  try {
+    boardId = await createBoard(page, boardTitle);
+    await createCard(page, "Что прошло хорошо", votedCardText);
+    await createCard(page, "Что прошло хорошо", newestCardText);
+    await createCard(page, "Что прошло хорошо", thirdCardText);
+    await createCard(page, "Что можно улучшить", secondVotedCardText);
+    await createCard(page, "Что можно улучшить", secondNewestCardText);
+    const secondOriginalOrder = await visibleCardOrder("Что можно улучшить");
+
+    await card(page, "Что прошло хорошо", votedCardText)
+      .getByRole("button", {
+        name: `Проголосовать за карточку «${votedCardText}»`,
+      })
+      .click();
+    await card(page, "Что можно улучшить", secondVotedCardText)
+      .getByRole("button", {
+        name: `Проголосовать за карточку «${secondVotedCardText}»`,
+      })
+      .click();
+
+    await openColumnSortMenu("Что прошло хорошо");
+    const byVoteCountItem = page.getByRole("menuitemradio", {
+      name: "По числу голосов",
+      exact: true,
+    });
+    await expect(byVoteCountItem).toHaveAttribute(
+      "title",
+      "Сортировать карточки по числу голосов. При перемещении карточки этот порядок станет обычным.",
+    );
+    await byVoteCountItem.click();
+    await expect
+      .poll(async () => (await visibleCardOrder("Что прошло хорошо"))[0])
+      .toBe(`Карточка «${votedCardText}»`);
+    await expect
+      .poll(() => visibleCardOrder("Что можно улучшить"))
+      .toEqual(secondOriginalOrder);
+    await expect(
+      card(page, "Что прошло хорошо", votedCardText).getByRole("button", {
+        name: `Переместить карточку «${votedCardText}»`,
+      }),
+    ).toBeEnabled();
+    await expect(
+      card(page, "Что можно улучшить", secondVotedCardText).getByRole(
+        "button",
+        {
+          name: `Переместить карточку «${secondVotedCardText}»`,
+        },
+      ),
+    ).toBeEnabled();
+
+    const sortedMoveHandle = card(
+      page,
+      "Что прошло хорошо",
+      votedCardText,
+    ).getByRole("button", {
+      name: `Переместить карточку «${votedCardText}»`,
+    });
+    await sortedMoveHandle.focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("ArrowDown");
+    const sortedMoveResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname.startsWith(
+          `/api/boards/${boardId}/cards/`,
+        ) &&
+        new URL(response.url()).pathname.endsWith("/move"),
+      { timeout: 20_000 },
+    );
+    await page.keyboard.press("Space");
+    expect((await sortedMoveResponse).ok()).toBe(true);
+    const firstMaterializedOrder = [
+      `Карточка «${thirdCardText}»`,
+      `Карточка «${votedCardText}»`,
+      `Карточка «${newestCardText}»`,
+    ];
+    await expect
+      .poll(() => visibleCardOrder("Что прошло хорошо"))
+      .toEqual(firstMaterializedOrder);
+    await openColumnSortMenu("Что прошло хорошо");
+    const originalOrderItem = page.getByRole("menuitemradio", {
+      name: "Обычный порядок",
+      exact: true,
+    });
+    await expect(originalOrderItem).toHaveAttribute(
+      "title",
+      "Показать карточки в сохранённом порядке",
+    );
+    await expect(originalOrderItem).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await page.reload();
+    await waitForBoard(page, boardTitle);
+    await expect
+      .poll(() => visibleCardOrder("Что прошло хорошо"))
+      .toEqual(firstMaterializedOrder);
+
+    await openColumnSortMenu("Что можно улучшить");
+    await expect(
+      page.getByRole("menuitemradio", {
+        name: "Обычный порядок",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page
+      .getByRole("menuitemradio", {
+        name: "По числу голосов",
+        exact: true,
+      })
+      .click();
+    await expect
+      .poll(async () => (await visibleCardOrder("Что можно улучшить"))[0])
+      .toBe(`Карточка «${secondVotedCardText}»`);
+    await expect
+      .poll(() => visibleCardOrder("Что прошло хорошо"))
+      .toEqual(firstMaterializedOrder);
+
+    const crossColumnMoveResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname.startsWith(
+          `/api/boards/${boardId}/cards/`,
+        ) &&
+        new URL(response.url()).pathname.endsWith("/move"),
+      { timeout: 20_000 },
+    );
+    await mouseDrag(
+      page,
+      card(page, "Что можно улучшить", secondVotedCardText).getByRole(
+        "button",
+        {
+          name: `Переместить карточку «${secondVotedCardText}»`,
+        },
+      ),
+      column(page, "Что прошло хорошо").getByRole("list", {
+        name: "Что прошло хорошо",
+      }),
+    );
+    expect((await crossColumnMoveResponse).ok()).toBe(true);
+    await expect(
+      card(page, "Что прошло хорошо", secondVotedCardText),
+    ).toBeVisible();
+    await openColumnSortMenu("Что можно улучшить");
+    await expect(
+      page.getByRole("menuitemradio", {
+        name: "Обычный порядок",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    const firstOrderAfterCrossColumnMove =
+      await visibleCardOrder("Что прошло хорошо");
+    const secondOrderAfterCrossColumnMove =
+      await visibleCardOrder("Что можно улучшить");
+    await page.reload();
+    await waitForBoard(page, boardTitle);
+    await expect
+      .poll(() => visibleCardOrder("Что прошло хорошо"))
+      .toEqual(firstOrderAfterCrossColumnMove);
+    await expect
+      .poll(() => visibleCardOrder("Что можно улучшить"))
+      .toEqual(secondOrderAfterCrossColumnMove);
+
+    await page.getByRole("link", { name: "Вернуться на главную" }).click();
+    await expect(page).toHaveURL("/");
+    const boardLink = page.getByRole("link", {
+      name: `Открыть доску «${boardTitle}»`,
+    });
+    await expect(boardLink).toBeVisible();
+    await expect(boardLink).toContainText("Владелец");
+  } catch (error) {
+    flowError = error;
+    throw error;
+  } finally {
+    if (boardId) {
+      try {
+        await deleteBoard(context, boardId, origin);
+      } catch (cleanupError) {
+        if (!flowError) {
+          throw cleanupError;
+        }
+        console.error(
+          "Board cleanup also failed after the column sorting E2E error",
+        );
+      }
+    }
+  }
+});
+
 test("quick column flow supports desktop, mobile, keyboard and full column management", async ({
   page,
 }) => {

@@ -14,13 +14,18 @@ available in English, Russian, and Spanish.
 ## Features
 
 - Create a board without registering an account.
+- Return to active owned and joined boards from the home page in the same
+  browser.
 - Invite participants with expiring links and a bounded number of uses.
 - Separate owner and participant permissions.
 - Create, rename, reorder, and remove up to ten columns with per-column vote
   limits.
 - Add cards with an optional author, edit owned cards, and move cards using
   pointer, touch, or keyboard controls.
-- Vote, group related cards, and turn outcomes into assignable action items.
+- Vote, sort each column independently by vote count without changing its saved
+  card order, group related cards, and turn outcomes into assignable action
+  items. Dragging a card from the vote-count view makes the displayed order the
+  saved order for the affected columns.
 - Pause cards or voting, make a board read-only, and reset votes as the owner.
 - Receive near-real-time updates through PostgreSQL `LISTEN/NOTIFY` and
   Server-Sent Events, with periodic state reconciliation as a fallback.
