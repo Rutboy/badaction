@@ -332,9 +332,18 @@ const cardTargetActionItemSchema = z
   })
   .strict();
 
+const groupTargetActionItemSchema = z
+  .object({
+    source: z.literal("group"),
+    sourceGroupId: targetUuidV4Schema,
+    assignee: actionItemAssigneeSchema.optional().default(null),
+  })
+  .strict();
+
 export const createTargetActionItemSchema = z.discriminatedUnion("source", [
   manualTargetActionItemSchema,
   cardTargetActionItemSchema,
+  groupTargetActionItemSchema,
 ]);
 
 export const patchTargetActionItemSchema = z

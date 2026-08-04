@@ -197,22 +197,29 @@ autoritativos.
 
 Un grupo nuevo contiene 2–100 tarjetas únicas de una misma columna.
 `primaryCardId` debe estar incluido en `cardIds`. El título de un grupo es
-`null` o contiene 1–120 caracteres después de trim.
+`null` o contiene 1–120 caracteres después de trim. Cuando es `null`, los
+clientes muestran el texto de la tarjeta principal como nombre efectivo del
+grupo y las exportaciones materializan ese valor alternativo en el título del
+grupo exportado. El `voteCount` de un grupo es el número de identidades de
+visitante distintas, acotadas al tablero, que votaron por alguna tarjeta del
+grupo; varios votos de una identidad contribuyen uno al total del grupo.
 
 ### Elementos de acción
 
-| Método y ruta                                                 | Acceso      | Solicitud                                                                           | Resultado                                |
-| ------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------- | ---------------------------------------- |
-| `POST /api/boards/{boardId}/action-items`                     | Propietario | `{source: "manual", text, assignee?}` o `{source: "card", sourceCardId, assignee?}` | `201` con revisión y elemento de acción. |
-| `PATCH /api/boards/{boardId}/action-items/{actionItemId}`     | Propietario | Uno o más de `{text?, assignee?, completed?}`                                       | Revisión y elemento de acción.           |
-| `POST /api/boards/{boardId}/action-items/{actionItemId}/move` | Propietario | `{placement, expectedRevision}`                                                     | Revisión y elemento de acción.           |
-| `DELETE /api/boards/{boardId}/action-items/{actionItemId}`    | Propietario | `{expectedRevision}`                                                                | Revisión.                                |
+| Método y ruta                                                 | Acceso      | Solicitud                                                                                                                          | Resultado                                |
+| ------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `POST /api/boards/{boardId}/action-items`                     | Propietario | `{source: "manual", text, assignee?}`, `{source: "card", sourceCardId, assignee?}` o `{source: "group", sourceGroupId, assignee?}` | `201` con revisión y elemento de acción. |
+| `PATCH /api/boards/{boardId}/action-items/{actionItemId}`     | Propietario | Uno o más de `{text?, assignee?, completed?}`                                                                                      | Revisión y elemento de acción.           |
+| `POST /api/boards/{boardId}/action-items/{actionItemId}/move` | Propietario | `{placement, expectedRevision}`                                                                                                    | Revisión y elemento de acción.           |
+| `DELETE /api/boards/{boardId}/action-items/{actionItemId}`    | Propietario | `{expectedRevision}`                                                                                                               | Revisión.                                |
 
 El texto manual contiene 1–1000 caracteres después de trim. Un elemento de
 acción creado a partir de una tarjeta copia el texto actual de esa tarjeta y
-almacena una referencia a su origen. `assignee` es `null` o contiene 1–120
-caracteres después de trim. Un tablero admite como máximo 200 elementos de
-acción.
+almacena una referencia a su origen. Un elemento de acción creado a partir de
+un grupo copia su título explícito o, cuando es `null`, el texto de la tarjeta
+principal; su referencia de tarjeta de origen apunta a esa tarjeta principal.
+`assignee` es `null` o contiene 1–120 caracteres después de trim. Un tablero
+admite como máximo 200 elementos de acción.
 
 La colocación de elementos de acción usa
 `{beforeActionItemId, afterActionItemId}`, con un vecino `null` en cualquiera de

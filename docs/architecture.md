@@ -56,6 +56,8 @@ The active schema is defined by `prisma/schema.prisma` and the SQL migrations in
 
 Database constraints bind cards, groups, votes, columns, memberships, and invitations to the same board. Unique indexes enforce one active owner, one active membership per board/session, one vote per card/visitor, and vote quota slots. Some of these guarantees depend on the SQL migrations in addition to the Prisma schema.
 
+Group presentation is derived without duplicating persisted card data. A missing group title falls back to the primary card text. The aggregate group vote count is computed with `COUNT(DISTINCT visitor_token)` across votes on every card in the group. Creating an action item from a group copies this effective title and uses the primary card for the existing optional source-card relationship.
+
 ## Identity and access
 
 Creating a board atomically creates or resolves the anonymous session, creates the board, creates its single active owner membership, and creates the default columns. The board UUID appears in the URL, but it is only a locator. It does not grant access.

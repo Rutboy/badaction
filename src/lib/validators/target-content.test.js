@@ -214,6 +214,10 @@ test("vote and action schemas enforce confirmations and strict discriminated uni
     createTargetActionItemSchema.parse({ source: "card", sourceCardId: ID_A }),
     { source: "card", sourceCardId: ID_A, assignee: null },
   );
+  assert.deepEqual(
+    createTargetActionItemSchema.parse({ source: "group", sourceGroupId: ID_B }),
+    { source: "group", sourceGroupId: ID_B, assignee: null },
+  );
   assert.equal(
     createTargetActionItemSchema.safeParse({
       source: "card",

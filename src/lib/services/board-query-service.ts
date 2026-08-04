@@ -23,6 +23,7 @@ import {
   requireContentVisitorIdentity,
   serializeRevision,
 } from "./content-service-helpers.ts";
+import { loadUniqueGroupVoteCounts } from "./group-vote-counts.ts";
 import {
   listTopLevelItems,
   type TopLevelItemRow,
@@ -198,6 +199,7 @@ const buildBoardItems = async (
         select: { cardId: true },
       });
   const votedCardIds = new Set(viewerVotes.map((vote) => vote.cardId));
+  const groupVoteCounts = await loadUniqueGroupVoteCounts(tx, board.id, groupIds);
   const cardById = new Map(cards.map((card) => [card.id, card]));
   const groupById = new Map(groups.map((group) => [group.id, group]));
   const originalsByGroup = groupByKey(originals, (card) => card.groupId as string);
@@ -248,7 +250,7 @@ const buildBoardItems = async (
       position: group.position,
       title: group.title,
       primaryCardId: group.primaryCardId,
-      voteCount: serializedCards.reduce((sum, card) => sum + card.voteCount, 0),
+      voteCount: groupVoteCounts.get(group.id) ?? 0,
       viewerHasVoted: votedCardIds.has(group.primaryCardId),
       canMove: access.role === "OWNER" && !board.readOnly && board.cardsEnabled,
       canUngroup: access.role === "OWNER" && !board.readOnly && board.cardsEnabled,

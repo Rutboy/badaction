@@ -87,6 +87,13 @@ garantizan un propietario activo, una membresía activa por tablero/sesión, un
 voto por tarjeta/visitante y las plazas de cuota de voto. Algunas de estas
 garantías dependen de las migraciones SQL además del esquema de Prisma.
 
+La presentación de un grupo se deriva sin duplicar los datos persistidos de las
+tarjetas. Si falta el título del grupo, se usa el texto de la tarjeta principal.
+El total de votos del grupo se calcula con `COUNT(DISTINCT visitor_token)` sobre
+los votos de todas sus tarjetas. Al crear un elemento de acción desde un grupo,
+se copia este título efectivo y se usa la tarjeta principal para la relación
+opcional existente con la tarjeta de origen.
+
 ## Identidad y acceso
 
 La creación de un tablero crea o resuelve atómicamente la sesión anónima, crea

@@ -30,6 +30,7 @@ import {
   setTopLevelPosition,
   type TopLevelItemRow,
 } from "./top-level-order.ts";
+import { loadUniqueGroupVoteCounts } from "./group-vote-counts.ts";
 import { moveVotesBetweenColumns } from "./vote-move-service.ts";
 
 const GROUP_CARD_SELECT = {
@@ -151,6 +152,7 @@ const serializeGroupView = async (
     cards.map((card) => card.id),
     visitorIdentity,
   );
+  const groupVoteCounts = await loadUniqueGroupVoteCounts(tx, group.boardId, [group.id]);
   return {
     kind: "GROUP",
     id: group.id,
@@ -158,7 +160,7 @@ const serializeGroupView = async (
     position: group.position,
     title: group.title,
     primaryCardId: group.primaryCardId,
-    voteCount: cards.reduce((sum, card) => sum + card._count.votes, 0),
+    voteCount: groupVoteCounts.get(group.id) ?? 0,
     viewerHasVoted: viewerVotes.has(group.primaryCardId),
     canMove: context.access.role === "OWNER"
       && !context.board.readOnly

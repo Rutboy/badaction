@@ -32,6 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n/provider";
 import type { Translate } from "@/i18n/translate";
+import { getGroupDisplayTitle } from "@/lib/group-display";
 import type {
   ActionItemView,
   BoardItem,
@@ -76,14 +77,14 @@ const itemLabel = (item: BoardItem, t: Translate): string =>
   item.kind === "CARD"
     ? t("content.card.itemLabel", { text: item.text.slice(0, 80) })
     : t("content.group.itemLabel", {
-        title: item.title ?? t("content.group.unnamed"),
+        title: getGroupDisplayTitle(item) ?? t("content.group.unnamed"),
       });
 
 const itemMoveLabel = (item: BoardItem, t: Translate): string =>
   item.kind === "CARD"
     ? t("content.card.moveLabel", { text: item.text.slice(0, 80) })
     : t("content.group.moveLabel", {
-        title: item.title ?? t("content.group.unnamed"),
+        title: getGroupDisplayTitle(item) ?? t("content.group.unnamed"),
       });
 
 const actionLabel = (item: ActionItemView, t: Translate): string =>
@@ -639,14 +640,16 @@ const SortableBoardItem = ({
             item.kind === "CARD"
               ? t("content.vote.voteForCard", { text: item.text })
               : t("content.vote.voteForGroup", {
-                  title: item.title ?? t("content.group.unnamed"),
+                  title:
+                    getGroupDisplayTitle(item) ?? t("content.group.unnamed"),
                 })
           }
           removeVoteLabel={
             item.kind === "CARD"
               ? t("content.vote.removeVoteFromCard", { text: item.text })
               : t("content.vote.removeVoteFromGroup", {
-                  title: item.title ?? t("content.group.unnamed"),
+                  title:
+                    getGroupDisplayTitle(item) ?? t("content.group.unnamed"),
                 })
           }
           voteCount={item.voteCount}
@@ -693,6 +696,7 @@ const SortableBoardItem = ({
             boardId={boardId}
             group={item}
             revision={board.revision}
+            canManageActionItems={board.capabilities.canManageActionItems}
             disabled={loadingKey !== null}
             onChanged={onChanged}
           />
@@ -846,7 +850,7 @@ const GroupItemContent = ({
           <div className="flex items-center gap-2">
             <Layers3 className="size-4 shrink-0 text-muted-foreground" />
             <p className="break-words text-sm font-semibold">
-              {group.title ?? t("content.group.defaultTitle")}
+              {getGroupDisplayTitle(group) ?? t("content.group.defaultTitle")}
             </p>
           </div>
           <p className="text-xs text-muted-foreground">
