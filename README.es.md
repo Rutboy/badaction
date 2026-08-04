@@ -14,6 +14,8 @@ proyecto está disponible en inglés, ruso y español.
 ## Funcionalidades
 
 - Crear un tablero sin registrar una cuenta.
+- Volver desde la página principal a los tableros propios y compartidos activos
+  en el mismo navegador.
 - Invitar participantes mediante enlaces que caducan y tienen un número de usos
   limitado.
 - Separar los permisos de propietario y participante.
@@ -21,8 +23,11 @@ proyecto está disponible en inglés, ruso y español.
   por columna.
 - Añadir tarjetas con autor opcional, editar las tarjetas propias y moverlas con
   puntero, pantalla táctil o teclado.
-- Votar, agrupar tarjetas relacionadas y convertir los resultados en elementos
-  de acción asignables.
+- Votar y ordenar cada columna por número de votos de forma independiente sin
+  cambiar el orden guardado de sus tarjetas, agrupar tarjetas relacionadas y
+  convertir los resultados en elementos de acción asignables. Al mover una
+  tarjeta desde esta vista, el orden visible de las columnas afectadas pasa a
+  ser el orden guardado.
 - Pausar las tarjetas o las votaciones, convertir un tablero en solo lectura y
   restablecer los votos como propietario.
 - Recibir actualizaciones casi en tiempo real mediante `LISTEN/NOTIFY` de

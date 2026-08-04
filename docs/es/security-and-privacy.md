@@ -118,6 +118,11 @@ sesiones revocadas se conservan como marcadores de eliminación hasta que termin
 vida útil de su credencial, para impedir que una cookie antigua todavía válida
 pueda recrear una sesión activa mediante inserción o actualización.
 
+La página principal muestra títulos de tableros únicamente para las membresías
+activas de la sesión anónima actual y mientras esos tableros no hayan caducado.
+Se excluyen las membresías revocadas, los tableros caducados y los tableros
+asociados a otra credencial del navegador.
+
 No hay cuentas, contraseñas ni recuperación por correo electrónico. Borrar la
 cookie, usar otro perfil de navegador, rotar secretos de credenciales sin un
 plan de migración o perder la credencial de cualquier otra forma puede impedir

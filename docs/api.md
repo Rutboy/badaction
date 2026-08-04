@@ -99,19 +99,23 @@ Boards support at most 10 columns. Column titles contain 1–80 trimmed characte
 
 ### Cards and pagination
 
-| Method and path                                  | Access                        | Request                                         | Result                                                    |
-| ------------------------------------------------ | ----------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
-| `GET /api/boards/{boardId}/cards`                | Member                        | Query `{columnId, cursor?, limit?}`             | One column's item page.                                   |
-| `POST /api/boards/{boardId}/cards`               | Member                        | `{columnId, text, author?}`                     | `201` with revision and card.                             |
-| `PATCH /api/boards/{boardId}/cards/{cardId}`     | Owner or current card creator | `{text?, author?}`                              | Revision and card.                                        |
-| `POST /api/boards/{boardId}/cards/{cardId}/move` | Owner or current card creator | `{targetColumnId, placement, expectedRevision}` | Revision and card. Grouped cards must be ungrouped first. |
-| `DELETE /api/boards/{boardId}/cards/{cardId}`    | Owner or current card creator | `{expectedRevision}`                            | Revision.                                                 |
+| Method and path                                  | Access                        | Request                                                               | Result                                                    |
+| ------------------------------------------------ | ----------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------- |
+| `GET /api/boards/{boardId}/cards`                | Member                        | Query `{columnId, cursor?, limit?}`                                   | One column's item page.                                   |
+| `POST /api/boards/{boardId}/cards`               | Member                        | `{columnId, text, author?}`                                           | `201` with revision and card.                             |
+| `PATCH /api/boards/{boardId}/cards/{cardId}`     | Owner or current card creator | `{text?, author?}`                                                    | Revision and card.                                        |
+| `POST /api/boards/{boardId}/cards/{cardId}/move` | Owner or current card creator | `{targetColumnId, placement, voteSortedColumnIds?, expectedRevision}` | Revision and card. Grouped cards must be ungrouped first. |
+| `DELETE /api/boards/{boardId}/cards/{cardId}`    | Owner or current card creator | `{expectedRevision}`                                                  | Revision.                                                 |
 
 The page query requires `columnId`. `limit` defaults to 50 and supports 1–100. The response contains `{columnId, revision, items, totalCount, nextCursor}`. Pass the opaque `nextCursor` unchanged to retrieve another page for the same board and column. A malformed, stale, or mismatched cursor returns `400 INVALID_CURSOR`.
 
 Card text contains 1–1000 trimmed characters. `author` is `null` or 1–120 trimmed characters. The total card limit is controlled by `BOARD_CARD_LIMIT` and is enforced transactionally.
 
 Item placement uses `{before, after}`, where each non-null reference is `{kind: "CARD" | "GROUP", id}`. References describe adjacent top-level items in the target column. If concurrent work makes the placement stale, the server returns a revision conflict.
+
+`voteSortedColumnIds` may contain at most the source and target column IDs. It
+asks the server to materialize their current vote-count order while applying the
+move, so leaving the vote-count view preserves the visible order atomically.
 
 ### Votes
 
@@ -126,12 +130,12 @@ One board-scoped visitor identity can vote once per card and no more than the ta
 
 ### Groups
 
-| Method and path                                       | Access | Request                                                        | Result                                                                             |
-| ----------------------------------------------------- | ------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `POST /api/boards/{boardId}/groups`                   | Owner  | `{columnId, cardIds, primaryCardId, title?, expectedRevision}` | `201` with revision and group.                                                     |
-| `PATCH /api/boards/{boardId}/groups/{groupId}`        | Owner  | `{title?, primaryCardId?, expectedRevision?}`                  | Revision and group. `expectedRevision` is required when changing the primary card. |
-| `POST /api/boards/{boardId}/groups/{groupId}/move`    | Owner  | `{targetColumnId, placement, expectedRevision}`                | Revision and group.                                                                |
-| `POST /api/boards/{boardId}/groups/{groupId}/ungroup` | Owner  | `{expectedRevision}`                                           | Revision and the restored top-level cards.                                         |
+| Method and path                                       | Access | Request                                                               | Result                                                                             |
+| ----------------------------------------------------- | ------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `POST /api/boards/{boardId}/groups`                   | Owner  | `{columnId, cardIds, primaryCardId, title?, expectedRevision}`        | `201` with revision and group.                                                     |
+| `PATCH /api/boards/{boardId}/groups/{groupId}`        | Owner  | `{title?, primaryCardId?, expectedRevision?}`                         | Revision and group. `expectedRevision` is required when changing the primary card. |
+| `POST /api/boards/{boardId}/groups/{groupId}/move`    | Owner  | `{targetColumnId, placement, voteSortedColumnIds?, expectedRevision}` | Revision and group.                                                                |
+| `POST /api/boards/{boardId}/groups/{groupId}/ungroup` | Owner  | `{expectedRevision}`                                                  | Revision and the restored top-level cards.                                         |
 
 A new group contains 2–100 unique cards from one column. `primaryCardId` must be one of `cardIds`. A group title is `null` or 1–120 trimmed characters. When it is `null`, clients display the primary card's text as the effective group name, and exports materialize that fallback in the exported group title. A group's `voteCount` is the number of distinct board-scoped visitor identities that voted for any card in the group; multiple votes from one identity contribute one to the group total.
 

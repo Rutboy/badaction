@@ -148,6 +148,49 @@ const assertNoPrivateKeys = (value) => {
   visit(value);
 };
 
+databaseTest("moving in vote order materializes the visible column order", async () => {
+  const fixture = { boardIds: [], visitorPayloads: [] };
+  try {
+    const context = await setupBoard(fixture, "Порядок по голосам");
+    const sourceColumn = context.columns[0];
+    const votedCard = await createCard(context, sourceColumn.id, "С голосом");
+    const middleCard = await createCard(context, sourceColumn.id, "Без голоса 1");
+    const headCard = await createCard(context, sourceColumn.id, "Без голоса 2");
+    const vote = await voteForCard(
+      context.id,
+      votedCard.id,
+      context.ownerPayload,
+      context.ownerIdentity,
+    );
+    await advanceRevision(context, vote);
+
+    const moved = await moveTargetCard(
+      context.id,
+      votedCard.id,
+      context.ownerPayload,
+      context.ownerIdentity,
+      {
+        targetColumnId: sourceColumn.id,
+        placement: {
+          before: itemRef(headCard),
+          after: itemRef(middleCard),
+        },
+        voteSortedColumnIds: [sourceColumn.id],
+        expectedRevision: context.revision.toString(),
+      },
+    );
+    await advanceRevision(context, moved);
+
+    const page = await getTopLevelPage(context, sourceColumn.id);
+    assert.deepEqual(
+      page.items.map((item) => item.id),
+      [headCard.id, votedCard.id, middleCard.id],
+    );
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
 databaseTest("column deletion respects read-only, cards-disabled, empty, and last-column rules", async () => {
   const fixture = { boardIds: [], visitorPayloads: [] };
   try {

@@ -22,6 +22,14 @@ export const boardShellEn = {
       export: "Export",
       retention: "Data retention",
     },
+    sort: {
+      label: "Card order",
+      original: "Original order",
+      originalTooltip: "Show cards in their saved order",
+      byVoteCount: "By vote count",
+      byVoteCountTooltip:
+        "Sort cards by vote count. Moving a card makes this the saved order.",
+    },
     connection: {
       ariaLabel: "Sync status: {status}",
       connectingLabel: "Connecting…",
@@ -161,6 +169,14 @@ export const boardShellRu = {
       participation: "Участие",
       export: "Экспорт",
       retention: "Срок хранения",
+    },
+    sort: {
+      label: "Порядок карточек",
+      original: "Обычный порядок",
+      originalTooltip: "Показать карточки в сохранённом порядке",
+      byVoteCount: "По числу голосов",
+      byVoteCountTooltip:
+        "Сортировать карточки по числу голосов. При перемещении карточки этот порядок станет обычным.",
     },
     connection: {
       ariaLabel: "Состояние синхронизации: {status}",
@@ -308,6 +324,14 @@ export const boardShellEs = {
       participation: "Participación",
       export: "Exportar",
       retention: "Conservación de datos",
+    },
+    sort: {
+      label: "Orden de las tarjetas",
+      original: "Orden original",
+      originalTooltip: "Mostrar las tarjetas en el orden guardado",
+      byVoteCount: "Por número de votos",
+      byVoteCountTooltip:
+        "Ordenar las tarjetas por número de votos. Al mover una tarjeta, este pasa a ser el orden guardado.",
     },
     connection: {
       ariaLabel: "Estado de sincronización: {status}",

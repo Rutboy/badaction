@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   deriveSessionCredentialHash,
   getBoardAccessSecret,
+  listAccessibleBoards,
   preserveAnonymousSessionForCredentialRefresh,
   requireActiveAnonymousSession,
   resolveOrCreateAnonymousSession,
@@ -154,4 +155,72 @@ test("replaying an aging cookie cannot keep rewriting its tombstone", async () =
   assert.equal(first, 1);
   assert.equal(replay, 0);
   assert.equal(actualUpdates, 1);
+});
+
+test("lists only active board memberships returned for the current session", async () => {
+  const now = new Date("2026-08-04T12:00:00.000Z");
+  let membershipQuery;
+  const client = {
+    anonymousSession: {
+      findUnique: async () => ({
+        id: "session-id",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        expiresAt: new Date("2028-01-01T00:00:00.000Z"),
+        revokedAt: null,
+      }),
+    },
+    boardMembership: {
+      findMany: async (query) => {
+        membershipQuery = query;
+        return [
+          {
+            role: "OWNER",
+            board: {
+              id: "new-board",
+              title: "Newest board",
+              createdAt: new Date("2026-08-03T00:00:00.000Z"),
+              expiresAt: new Date("2026-09-03T00:00:00.000Z"),
+            },
+          },
+          {
+            role: "PARTICIPANT",
+            board: {
+              id: "shared-board",
+              title: "Shared board",
+              createdAt: new Date("2026-08-02T00:00:00.000Z"),
+              expiresAt: new Date("2026-09-02T00:00:00.000Z"),
+            },
+          },
+        ];
+      },
+    },
+  };
+
+  const boards = await listAccessibleBoards("G".repeat(43), {
+    client,
+    env: ENV,
+    now,
+  });
+
+  assert.deepEqual(membershipQuery.where, {
+    sessionId: "session-id",
+    revokedAt: null,
+    board: { expiresAt: { gt: now } },
+  });
+  assert.deepEqual(boards, [
+    {
+      id: "new-board",
+      title: "Newest board",
+      role: "OWNER",
+      createdAt: "2026-08-03T00:00:00.000Z",
+      expiresAt: "2026-09-03T00:00:00.000Z",
+    },
+    {
+      id: "shared-board",
+      title: "Shared board",
+      role: "PARTICIPANT",
+      createdAt: "2026-08-02T00:00:00.000Z",
+      expiresAt: "2026-09-02T00:00:00.000Z",
+    },
+  ]);
 });
